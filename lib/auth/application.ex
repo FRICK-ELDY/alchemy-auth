@@ -10,6 +10,7 @@ defmodule Auth.Application do
     children = [
       AuthWeb.Telemetry,
       Auth.Repo,
+      Auth.Token.Keys,
       {DNSCluster, query: Application.get_env(:auth, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Auth.PubSub},
       # Start a worker by calling: Auth.Worker.start_link(arg)

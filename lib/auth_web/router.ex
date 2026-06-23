@@ -5,8 +5,27 @@ defmodule AuthWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/api", AuthWeb do
+  pipeline :authenticated do
+    plug AuthWeb.Plugs.Authenticate
+  end
+
+  scope "/api/v1/auth", AuthWeb do
     pipe_through :api
+
+    post "/register", AuthController, :register
+    post "/login", AuthController, :login
+  end
+
+  scope "/api/v1/auth", AuthWeb do
+    pipe_through [:api, :authenticated]
+
+    post "/logout", AuthController, :logout
+    get "/me", AuthController, :me
+  end
+
+  scope "/", AuthWeb do
+    get "/health", HealthController, :index
+    get "/.well-known/jwks.json", JwksController, :index
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

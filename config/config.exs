@@ -10,7 +10,11 @@ import Config
 config :auth,
   ecto_repos: [Auth.Repo],
   ash_domains: [Auth.Domain],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  jwt_issuer: "alchemy-auth",
+  jwt_audience: "alchemy-platform",
+  jwt_ttl_seconds: 86_400,
+  jwt_private_key_path: "priv/jwt_private.pem"
 
 # Configure the endpoint
 config :auth, AuthWeb.Endpoint,

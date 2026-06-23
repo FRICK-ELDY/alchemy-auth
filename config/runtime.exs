@@ -40,6 +40,10 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
+  config :auth,
+         :jwt_private_key_path,
+         System.get_env("JWT_PRIVATE_KEY_PATH") || "priv/jwt_private.pem"
+
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want
