@@ -15,5 +15,33 @@ services:
       timeout: 5s
       retries: 5
 
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4002:4002"
+    environment:
+      MIX_ENV: dev
+      PHX_SERVER: "true"
+      BIND_ALL: "true"
+      PORT: "4002"
+      DATABASE_URL: ecto://alchemy_auth:alchemy_auth@postgres:5432/alchemy_auth_dev
+      JWT_PRIVATE_KEY_PATH: /app/priv/jwt_private.pem
+    volumes:
+      - .:/app
+      - auth_deps:/app/deps
+      - auth_build:/app/_build
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "mix setup &&
+             mix ecto.create &&
+             mix ecto.migrate &&
+             mix phx.server"
+
 volumes:
   postgres_data:
+  auth_deps:
+  auth_build:
