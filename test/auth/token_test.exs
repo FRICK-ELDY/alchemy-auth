@@ -11,8 +11,9 @@ defmodule Auth.TokenTest do
 
   test "generates and verifies a token", %{user: user} do
     assert {:ok, token, _jti, 86_400} = Token.generate(user)
-    assert {:ok, claims} = Token.verify(token)
+    assert {:ok, claims, verified_user} = Token.verify(token)
     assert claims["sub"] == user.id
+    assert verified_user.id == user.id
     assert claims["status"] == "active"
     assert claims["iss"] == "alchemy-auth"
     assert claims["aud"] == "alchemy-platform"

@@ -1,6 +1,6 @@
 defmodule AuthWeb.Plugs.Authenticate do
   @moduledoc """
-  Verifies Bearer JWT and assigns `current_user_id` and `token_claims`.
+  Verifies Bearer JWT and assigns `current_user`, `current_user_id`, and `token_claims`.
   """
 
   import Plug.Conn
@@ -12,9 +12,10 @@ defmodule AuthWeb.Plugs.Authenticate do
 
   def call(conn, _opts) do
     with {:ok, token} <- fetch_bearer_token(conn),
-         {:ok, claims} <- Token.verify(token) do
+         {:ok, claims, user} <- Token.verify(token) do
       conn
-      |> assign(:current_user_id, claims["sub"])
+      |> assign(:current_user, user)
+      |> assign(:current_user_id, user.id)
       |> assign(:token_claims, claims)
     else
       _ ->

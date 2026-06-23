@@ -14,7 +14,8 @@ config :auth,
   jwt_issuer: "alchemy-auth",
   jwt_audience: "alchemy-platform",
   jwt_ttl_seconds: 86_400,
-  jwt_private_key_path: "priv/jwt_private.pem"
+  jwt_private_key_path: "priv/jwt_private.pem",
+  jwt_generate_key_on_startup: true
 
 # Configure the endpoint
 config :auth, AuthWeb.Endpoint,

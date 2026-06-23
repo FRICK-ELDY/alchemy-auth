@@ -35,7 +35,12 @@ defmodule Auth.Token.Keys do
     if File.exists?(path) do
       File.read!(path)
     else
-      generate_and_write_key_pair!(path)
+      if Application.get_env(:auth, :jwt_generate_key_on_startup, false) do
+        generate_and_write_key_pair!(path)
+      else
+        raise ArgumentError,
+              "JWT private key not found at #{path}. Key generation is disabled in this environment."
+      end
     end
   end
 

@@ -33,14 +33,14 @@ defmodule Auth.Token do
   @doc """
   Verifies a bearer token and returns claims when valid.
   """
-  @spec verify(String.t()) :: {:ok, map()} | {:error, atom()}
+  @spec verify(String.t()) :: {:ok, map(), User.t()} | {:error, atom()}
   def verify(token) when is_binary(token) do
     signer = Keys.signer()
 
     with {:ok, claims} <- Joken.verify_and_validate(token_config(), token, signer),
          :ok <- ensure_not_revoked(claims["jti"]),
-         :ok <- ensure_user_active(claims["sub"]) do
-      {:ok, claims}
+         {:ok, user} <- ensure_user_active(claims["sub"]) do
+      {:ok, claims, user}
     else
       {:error, :revoked} -> {:error, :revoked}
       {:error, :unauthorized} -> {:error, :unauthorized}
@@ -85,7 +85,7 @@ defmodule Auth.Token do
 
   defp ensure_user_active(user_id) do
     case Ash.get(User, user_id) do
-      {:ok, %{status: :active}} -> :ok
+      {:ok, %{status: :active} = user} -> {:ok, user}
       _ -> {:error, :unauthorized}
     end
   end

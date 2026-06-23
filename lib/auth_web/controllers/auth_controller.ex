@@ -57,7 +57,7 @@ defmodule AuthWeb.AuthController do
   end
 
   def me(conn, _params) do
-    user = Accounts.get_user!(conn.assigns.current_user_id)
+    user = conn.assigns.current_user
 
     json(conn, %{
       user_id: user.id,
