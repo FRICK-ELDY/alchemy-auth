@@ -22,6 +22,24 @@ end
 
 config :auth, AuthWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4002"))]
 
+if config_env() != :test and System.get_env("DATABASE_URL") do
+  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
+
+  config :auth, Auth.Repo,
+    url: System.get_env("DATABASE_URL"),
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+    socket_options: maybe_ipv6
+end
+
+if config_env() != :test and System.get_env("BIND_ALL") in ~w(true 1) do
+  config :auth, AuthWeb.Endpoint,
+    http: [
+      ip: {0, 0, 0, 0},
+      port: String.to_integer(System.get_env("PORT", "4002"))
+    ],
+    server: true
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

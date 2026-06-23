@@ -161,11 +161,25 @@ HTTP/1.1 200 OK
 - Elixir 1.19 / OTP 28
 - Docker（PostgreSQL 用）
 
-### 起動（実装後）
+### 起動（Docker 一式）
 
-```powershell
-# PostgreSQL
-docker compose up -d
+PostgreSQL と Phoenix をまとめて起動する場合:
+
+```bash
+docker compose up -d --build
+```
+
+初回はイメージビルドと `mix ash.setup` / `ecto.create` / `ecto.migrate` が走るため、数分かかることがあります。`http://localhost:4002/health` で確認できます。
+
+ソースはコンテナに bind mount されるため、コード変更はホスト側で保存すれば `mix phx.server` が再コンパイルします（`deps` / `_build` は名前付きボリュームで永続化）。
+
+### 起動（ホストで Elixir を実行）
+
+PostgreSQL のみ Docker、Elixir は WSL / ローカルで動かす場合:
+
+```bash
+# PostgreSQL のみ
+docker compose up -d postgres
 
 # 依存関係・DB
 mix deps.get
@@ -192,10 +206,12 @@ curl -X POST http://localhost:4002/api/v1/auth/login `
 
 | 変数 | 説明 | 例 |
 |:---|:---|:---|
-| `DATABASE_URL` | PostgreSQL 接続 URL | `ecto://alchemy_auth:alchemy_auth@localhost:5433/alchemy_auth_dev` |
+| `DATABASE_URL` | PostgreSQL 接続 URL | ホスト: `...@localhost:5433/...` / Docker 内: `...@postgres:5432/...` |
 | `SECRET_KEY_BASE` | Phoenix 秘密鍵 | （`mix phx.gen.secret` で生成） |
 | `JWT_PRIVATE_KEY_PATH` | RS256 秘密鍵 PEM パス | `priv/jwt_private.pem` |
 | `PORT` | HTTP ポート | `4002` |
+| `BIND_ALL` | `0.0.0.0` で待ち受け（Docker 用） | `true` |
+| `PHX_SERVER` | サーバープロセスを起動 | `true` |
 
 ## ポート方針
 

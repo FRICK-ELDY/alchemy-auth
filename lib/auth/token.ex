@@ -78,9 +78,14 @@ defmodule Auth.Token do
 
   defp ensure_user_active(user_id) do
     case Ash.get(User, user_id) do
-      {:ok, %{status: :active} = user} -> {:ok, user}
-      {:ok, _} -> {:error, :unauthorized}
-      {:error, error} -> if Auth.AshErrors.not_found?(error), do: {:error, :unauthorized}, else: {:error, error}
+      {:ok, %{status: :active} = user} ->
+        {:ok, user}
+
+      {:ok, _} ->
+        {:error, :unauthorized}
+
+      {:error, error} ->
+        if Auth.AshErrors.not_found?(error), do: {:error, :unauthorized}, else: {:error, error}
     end
   end
 end
