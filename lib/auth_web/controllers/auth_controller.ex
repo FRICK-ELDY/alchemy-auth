@@ -62,7 +62,7 @@ defmodule AuthWeb.AuthController do
     json(conn, %{
       user_id: user.id,
       email: to_string(user.email),
-      status: Atom.to_string(user.status)
+      status: to_string(user.status)
     })
   end
 

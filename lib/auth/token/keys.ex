@@ -44,13 +44,24 @@ defmodule Auth.Token.Keys do
     {_type, private_pem} = JOSE.JWK.to_pem(jwk)
     {_type, public_pem} = JOSE.JWK.to_pem(JOSE.JWK.to_public(jwk))
 
-    public_path = String.replace(private_path, "private", "public")
+    public_path = public_key_path(private_path)
 
     File.mkdir_p!(Path.dirname(private_path))
     File.write!(private_path, private_pem)
     File.write!(public_path, public_pem)
 
     private_pem
+  end
+
+  defp public_key_path(private_path) do
+    case String.replace(private_path, "private", "public") do
+      ^private_path ->
+        ext = Path.extname(private_path)
+        Path.rootname(private_path) <> "_public" <> ext
+
+      public_path ->
+        public_path
+    end
   end
 
   defp build_jwks(private_pem) do

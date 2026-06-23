@@ -17,18 +17,30 @@ defmodule Auth.Accounts do
           {:ok, map()}
           | {:error, :invalid_credentials}
   def login(email, password) when is_binary(email) and is_binary(password) do
-    with {:ok, user} <- User.get_by_email(email),
-         true <- user.status == :active,
-         true <- Password.verify(password, user.password_hash),
-         {:ok, access_token, _jti, expires_in} <- Token.generate(user) do
-      {:ok,
-       %{
-         access_token: access_token,
-         token_type: "Bearer",
-         expires_in: expires_in
-       }}
-    else
-      _ -> {:error, :invalid_credentials}
+    case User.get_by_email(email) do
+      {:ok, user} ->
+        pw_verified = Password.verify(password, user.password_hash)
+
+        if pw_verified and user.status == :active do
+          case Token.generate(user) do
+            {:ok, access_token, _jti, expires_in} ->
+              {:ok,
+               %{
+                 access_token: access_token,
+                 token_type: "Bearer",
+                 expires_in: expires_in
+               }}
+
+            _ ->
+              {:error, :invalid_credentials}
+          end
+        else
+          {:error, :invalid_credentials}
+        end
+
+      {:error, _} ->
+        Password.no_user_verify()
+        {:error, :invalid_credentials}
     end
   end
 

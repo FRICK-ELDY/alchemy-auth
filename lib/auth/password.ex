@@ -20,4 +20,13 @@ defmodule Auth.Password do
   rescue
     _ -> false
   end
+
+  @doc """
+  Performs a dummy password verification to mitigate timing attacks on login.
+  """
+  @spec no_user_verify() :: :ok
+  def no_user_verify do
+    Argon2.no_user_verify()
+    :ok
+  end
 end
