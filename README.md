@@ -226,4 +226,4 @@ CI では PostgreSQL 16 サービスコンテナ上で `mix ecto.create` → `mi
 
 ## ステータス
 
-🚧 **初期開発中** — Phoenix / Ash プロジェクトはこれから scaffold する。
+🚧 **初期開発中** — Ash リソース・JWT・認証 API まで実装済み。CI 整備中。

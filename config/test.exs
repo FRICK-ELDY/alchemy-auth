@@ -9,7 +9,7 @@ config :auth, Auth.Repo,
   username: "alchemy_auth",
   password: "alchemy_auth",
   hostname: "localhost",
-  port: 5433,
+  port: String.to_integer(System.get_env("PGPORT") || "5433"),
   database: "alchemy_auth_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
@@ -36,3 +36,6 @@ config :phoenix, :plug_init_mode, :runtime
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+config :auth, :jwt_private_key_path, "test/support/fixtures/jwt_private.pem"
+config :auth, :jwt_generate_key_on_startup, false

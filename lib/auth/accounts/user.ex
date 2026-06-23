@@ -64,10 +64,15 @@ defmodule Auth.Accounts.User do
 
       change Auth.Accounts.Changes.HashPassword
     end
+
+    update :set_status do
+      accept [:status]
+    end
   end
 
   code_interface do
     define :register, action: :register
     define :get_by_email, action: :get_by_email, args: [:email]
+    define :set_status, action: :set_status
   end
 end
