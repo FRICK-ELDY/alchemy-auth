@@ -2,10 +2,11 @@ import Config
 
 # Configure your database
 config :auth, Auth.Repo,
-  username: "postgres",
-  password: "postgres",
+  username: "alchemy_auth",
+  password: "alchemy_auth",
   hostname: "localhost",
-  database: "auth_dev",
+  port: 5433,
+  database: "alchemy_auth_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
@@ -19,7 +20,7 @@ config :auth, Auth.Repo,
 config :auth, AuthWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
+  http: [ip: {127, 0, 0, 1}, port: 4002],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
