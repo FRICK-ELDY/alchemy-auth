@@ -32,6 +32,11 @@ defmodule AuthWeb.AuthController do
         conn
         |> put_status(:unauthorized)
         |> json(%{errors: %{detail: Accounts.invalid_credentials_message()}})
+
+      {:error, _other} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{errors: %{detail: "An unexpected error occurred"}})
     end
   end
 

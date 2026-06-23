@@ -24,8 +24,15 @@ defmodule Auth.Token.Keys do
   def handle_continue(:load_keys, _state) do
     path = Application.fetch_env!(:auth, :jwt_private_key_path)
     private_pem = load_or_generate_private_key!(path)
-    signer = Joken.Signer.create("RS256", %{"pem" => private_pem})
     jwks = build_jwks(private_pem)
+
+    kid =
+      jwks
+      |> Map.fetch!("keys")
+      |> List.first()
+      |> Map.fetch!("kid")
+
+    signer = Joken.Signer.create("RS256", %{"pem" => private_pem}, %{"kid" => kid})
 
     {:noreply, %{signer: signer, jwks: jwks}}
   end
@@ -58,6 +65,7 @@ defmodule Auth.Token.Keys do
 
     File.mkdir_p!(Path.dirname(private_path))
     File.write!(private_path, private_pem)
+    File.chmod!(private_path, 0o600)
     File.write!(public_path, public_pem)
 
     private_pem

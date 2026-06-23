@@ -3,6 +3,7 @@ defmodule Auth.TokenTest do
 
   alias Auth.Accounts
   alias Auth.Token
+  alias Auth.Token.Keys
 
   setup do
     {:ok, user} = Accounts.register("token@example.com", "password123")
@@ -18,6 +19,16 @@ defmodule Auth.TokenTest do
     assert claims["iss"] == "alchemy-auth"
     assert claims["aud"] == "alchemy-platform"
     assert is_binary(claims["jti"])
+  end
+
+  test "includes kid in JWT header matching JWKS", %{user: user} do
+    assert {:ok, token, _jti, _} = Token.generate(user)
+
+    [header_b64 | _] = String.split(token, ".")
+    header = header_b64 |> Base.url_decode64!(padding: false) |> Jason.decode!()
+    jwk_kid = Keys.jwks() |> Map.fetch!("keys") |> List.first() |> Map.fetch!("kid")
+
+    assert header["kid"] == jwk_kid
   end
 
   test "rejects revoked token", %{user: user} do
