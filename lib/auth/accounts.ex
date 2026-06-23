@@ -14,8 +14,7 @@ defmodule Auth.Accounts do
   end
 
   @spec login(String.t(), String.t()) ::
-          {:ok, map()}
-          | {:error, :invalid_credentials}
+          {:ok, map()} | {:error, :invalid_credentials} | {:error, Ash.Error.t()}
   def login(email, password) when is_binary(email) and is_binary(password) do
     case User.get_by_email(email) do
       {:ok, user} ->
@@ -38,9 +37,13 @@ defmodule Auth.Accounts do
           {:error, :invalid_credentials}
         end
 
-      {:error, _} ->
-        Password.no_user_verify()
-        {:error, :invalid_credentials}
+      {:error, error} ->
+        if Auth.AshErrors.not_found?(error) do
+          Password.no_user_verify()
+          {:error, :invalid_credentials}
+        else
+          {:error, error}
+        end
     end
   end
 

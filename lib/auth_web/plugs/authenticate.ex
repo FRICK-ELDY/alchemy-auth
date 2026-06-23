@@ -18,7 +18,7 @@ defmodule AuthWeb.Plugs.Authenticate do
       |> assign(:current_user_id, user.id)
       |> assign(:token_claims, claims)
     else
-      _ ->
+      {:error, reason} when reason in [:missing_token, :invalid_token, :revoked, :unauthorized] ->
         conn
         |> put_status(:unauthorized)
         |> put_view(AuthWeb.ErrorJSON)

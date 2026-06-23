@@ -10,7 +10,7 @@ defmodule AuthWeb.AuthController do
         |> put_status(:created)
         |> json(%{user_id: user.id, email: to_string(user.email)})
 
-      {:error, error} ->
+      {:error, %Ash.Error.Invalid{} = error} ->
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{errors: %{detail: register_error_message(error)}})
@@ -73,8 +73,6 @@ defmodule AuthWeb.AuthController do
       "could not create user"
     end
   end
-
-  defp register_error_message(_error), do: "could not create user"
 
   defp email_taken?(errors) do
     Enum.any?(errors, fn

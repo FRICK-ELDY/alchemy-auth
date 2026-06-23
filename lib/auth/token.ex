@@ -33,7 +33,7 @@ defmodule Auth.Token do
   @doc """
   Verifies a bearer token and returns claims when valid.
   """
-  @spec verify(String.t()) :: {:ok, map(), User.t()} | {:error, atom()}
+  @spec verify(String.t()) :: {:ok, map(), User.t()} | {:error, any()}
   def verify(token) when is_binary(token) do
     signer = Keys.signer()
 
@@ -44,6 +44,7 @@ defmodule Auth.Token do
     else
       {:error, :revoked} -> {:error, :revoked}
       {:error, :unauthorized} -> {:error, :unauthorized}
+      {:error, error} when is_struct(error) -> {:error, error}
       {:error, _reason} -> {:error, :invalid_token}
     end
   end
@@ -71,22 +72,15 @@ defmodule Auth.Token do
   defp ensure_not_revoked(jti) do
     case TokenRevocation.get_by_jti(jti) do
       {:ok, _} -> {:error, :revoked}
-      {:error, error} -> if not_found?(error), do: :ok, else: {:error, error}
+      {:error, error} -> if Auth.AshErrors.not_found?(error), do: :ok, else: {:error, error}
     end
   end
-
-  defp not_found?(%Ash.Error.Query.NotFound{}), do: true
-
-  defp not_found?(%Ash.Error.Invalid{errors: errors}) when is_list(errors) do
-    Enum.any?(errors, &not_found?/1)
-  end
-
-  defp not_found?(_), do: false
 
   defp ensure_user_active(user_id) do
     case Ash.get(User, user_id) do
       {:ok, %{status: :active} = user} -> {:ok, user}
-      _ -> {:error, :unauthorized}
+      {:ok, _} -> {:error, :unauthorized}
+      {:error, error} -> if Auth.AshErrors.not_found?(error), do: {:error, :unauthorized}, else: {:error, error}
     end
   end
 end
