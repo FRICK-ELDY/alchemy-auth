@@ -17,12 +17,17 @@ defmodule Auth.Token.Keys do
 
   @impl true
   def init(_opts) do
+    {:ok, %{signer: nil, jwks: nil}, {:continue, :load_keys}}
+  end
+
+  @impl true
+  def handle_continue(:load_keys, _state) do
     path = Application.fetch_env!(:auth, :jwt_private_key_path)
     private_pem = load_or_generate_private_key!(path)
     signer = Joken.Signer.create("RS256", %{"pem" => private_pem})
     jwks = build_jwks(private_pem)
 
-    {:ok, %{signer: signer, jwks: jwks}}
+    {:noreply, %{signer: signer, jwks: jwks}}
   end
 
   @impl true
