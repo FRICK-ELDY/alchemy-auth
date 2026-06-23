@@ -22,7 +22,7 @@ end
 
 config :auth, AuthWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4002"))]
 
-if System.get_env("DATABASE_URL") do
+if config_env() != :test and System.get_env("DATABASE_URL") do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :auth, Auth.Repo,
@@ -31,7 +31,7 @@ if System.get_env("DATABASE_URL") do
     socket_options: maybe_ipv6
 end
 
-if System.get_env("BIND_ALL") in ~w(true 1) do
+if config_env() != :test and System.get_env("BIND_ALL") in ~w(true 1) do
   config :auth, AuthWeb.Endpoint,
     http: [
       ip: {0, 0, 0, 0},

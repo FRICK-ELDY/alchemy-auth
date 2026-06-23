@@ -169,7 +169,7 @@ PostgreSQL と Phoenix をまとめて起動する場合:
 docker compose up -d --build
 ```
 
-初回はイメージビルドと `mix setup` / `ecto.create` / `ecto.migrate` が走るため、数分かかることがあります。`http://localhost:4002/health` で確認できます。
+初回はイメージビルドと `mix ash.setup` / `ecto.create` / `ecto.migrate` が走るため、数分かかることがあります。`http://localhost:4002/health` で確認できます。
 
 ソースはコンテナに bind mount されるため、コード変更はホスト側で保存すれば `mix phx.server` が再コンパイルします（`deps` / `_build` は名前付きボリュームで永続化）。
 
