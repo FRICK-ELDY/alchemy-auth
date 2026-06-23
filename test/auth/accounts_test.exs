@@ -3,7 +3,6 @@ defmodule Auth.AccountsTest do
 
   alias Auth.Accounts
   alias Auth.Password
-  alias Auth.Repo
 
   describe "register/2" do
     test "creates a user with hashed password" do
@@ -47,13 +46,19 @@ defmodule Auth.AccountsTest do
     end
 
     test "rejects suspended user", %{user: user} do
-      Ecto.Adapters.SQL.query!(Repo, "UPDATE users SET status = $1 WHERE id = $2", [
-        "suspended",
-        Ecto.UUID.dump!(user.id)
-      ])
+      {:ok, _} =
+        user
+        |> Ash.Changeset.for_update(:set_status, %{status: :suspended})
+        |> Ash.update()
 
       assert {:error, :invalid_credentials} =
                Accounts.login("login@example.com", "password123")
+    end
+  end
+
+  describe "verify/2" do
+    test "returns false for nil hash without crashing" do
+      refute Password.verify("password123", nil)
     end
   end
 end

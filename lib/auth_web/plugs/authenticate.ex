@@ -21,7 +21,7 @@ defmodule AuthWeb.Plugs.Authenticate do
       _ ->
         conn
         |> put_status(:unauthorized)
-        |> put_view(json: AuthWeb.ErrorJSON)
+        |> put_view(AuthWeb.ErrorJSON)
         |> render(:"401")
         |> halt()
     end

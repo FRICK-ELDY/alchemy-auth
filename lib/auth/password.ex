@@ -14,11 +14,16 @@ defmodule Auth.Password do
   @doc """
   Verifies a plaintext password against a stored hash.
   """
-  @spec verify(String.t(), String.t()) :: boolean()
+  @spec verify(String.t(), String.t() | nil) :: boolean()
   def verify(password, hash) when is_binary(password) and is_binary(hash) do
     Argon2.verify_pass(password, hash)
   rescue
     _ -> false
+  end
+
+  def verify(_password, _hash) do
+    Argon2.no_user_verify()
+    false
   end
 
   @doc """
