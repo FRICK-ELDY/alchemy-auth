@@ -9,6 +9,7 @@ import Config
 
 config :auth,
   ecto_repos: [Auth.Repo],
+  ash_domains: [Auth.Domain],
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
