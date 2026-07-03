@@ -39,6 +39,7 @@ services:
       sh -c "mix ash.setup &&
              mix ecto.create &&
              mix ecto.migrate &&
+             mix run priv/repo/seeds.exs &&
              mix phx.server"
 
 volumes:

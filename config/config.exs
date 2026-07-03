@@ -15,7 +15,11 @@ config :auth,
   jwt_audience: "alchemy-platform",
   jwt_ttl_seconds: 86_400,
   jwt_private_key_path: "priv/jwt_private.pem",
-  jwt_generate_key_on_startup: true
+  jwt_generate_key_on_startup: true,
+  refresh_token_inactivity_days: 7,
+  tos_version: "2026-07-03",
+  tos_url: "https://alchemy.frick-eldy.com/terms",
+  privacy_policy_url: "https://alchemy.frick-eldy.com/privacy"
 
 # Configure the endpoint
 config :auth, AuthWeb.Endpoint,

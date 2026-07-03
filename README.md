@@ -9,9 +9,10 @@
 | 責務 | 説明 |
 |:---|:---|
 | ユーザーアイデンティティ | UUID ベースのユーザー ID（JWT `sub`） |
-| 登録 / ログイン | メール + パスワード（Argon2） |
+| 登録 / ログイン | ユーザー名 or メール + パスワード（Argon2） |
 | セッション | JWT（Bearer）の発行・検証 |
-| ログアウト | トークン失効（`jti` ベース） |
+| Remember Me | opaque リフレッシュトークン（7 日非アクティブで失効・スライディング） |
+| ログアウト | トークン失効（`jti` + リフレッシュトークン） |
 
 **本リポジトリが担わないもの**
 
@@ -54,18 +55,18 @@
 
 ### 含む
 
-1. `users` テーブル（`id` UUID, `email`, `password_hash`, `status`）
-2. ユーザー登録（email 一意制約）
-3. メール + パスワードログイン
+1. `users` テーブル（`id` UUID, `username`, `email`, `password_hash`, `status`, `birthday`, `promo_code`, `tos_agreed_at`, `tos_version`）
+2. ユーザー登録（username / email 一意制約、パスワード複雑性、利用規約同意、生年月日）
+3. ユーザー名 or メール + パスワードログイン
 4. JWT セッション発行
-5. 認証済み API ガード（`GET /me`）
-6. ログアウト（トークン失効）
+5. Remember Me（リフレッシュトークン。7 日非アクティブで失効、`POST /refresh`）
+6. 認証済み API ガード（`GET /me`）
+7. ログアウト（アクセストークン失効 + リフレッシュトークン失効）
 
 ### 含まない（後フェーズ）
 
 - メール確認・パスワードリセット
 - OAuth / OIDC
-- リフレッシュトークン
 - alchemy-engine / alchemy-assets との本番統合
 - 管理画面
 
@@ -73,9 +74,10 @@
 
 | Method | Path | 認証 | 説明 |
 |:---|:---|:---|:---|
-| `POST` | `/api/v1/auth/register` | なし | ユーザー登録 |
-| `POST` | `/api/v1/auth/login` | なし | ログイン → JWT 発行 |
-| `POST` | `/api/v1/auth/logout` | Bearer | ログアウト |
+| `POST` | `/api/v1/auth/register` | なし | ユーザー登録 → セッション発行 |
+| `POST` | `/api/v1/auth/login` | なし | ログイン(username or email)→ セッション発行 |
+| `POST` | `/api/v1/auth/refresh` | なし | リフレッシュトークン → 新規アクセストークン |
+| `POST` | `/api/v1/auth/logout` | Bearer | ログアウト(リフレッシュトークンも失効可) |
 | `GET` | `/api/v1/auth/me` | Bearer | 認証済みユーザー情報 |
 | `GET` | `/health` | なし | ヘルスチェック |
 | `GET` | `/.well-known/jwks.json` | なし | JWT 検証用公開鍵 |
@@ -88,13 +90,42 @@
 POST /api/v1/auth/register
 Content-Type: application/json
 
-{"email": "user@example.com", "password": "secret123"}
+{
+  "username": "frick",
+  "email": "user@example.com",
+  "password": "Secret123",
+  "birthday": "2000-01-31",
+  "promo_code": "ABC123",
+  "tos_agreed": true,
+  "remember_me": true
+}
 ```
+
+- `username`: 3〜20 文字、英数字とアンダースコアのみ(大文字小文字非区別で一意)
+- `password`: 8 文字以上、数字・小文字・大文字を各 1 以上
+- `birthday`: `YYYY-MM-DD`(過去日付)
+- `promo_code`: 任意
+- `tos_agreed`: `true` 必須(同意時刻と規約バージョンを記録)
+- `remember_me`: 任意。`true` でリフレッシュトークンを発行
 
 ```json
 HTTP/1.1 201 Created
 
-{"user_id": "550e8400-e29b-41d4-a716-446655440000", "email": "user@example.com"}
+{
+  "access_token": "eyJ...",
+  "token_type": "Bearer",
+  "expires_in": 86400,
+  "refresh_token": "opaque...",
+  "user": {"user_id": "550e8400-...", "username": "frick", "email": "user@example.com"}
+}
+```
+
+バリデーションエラーはフィールド別に返す:
+
+```json
+HTTP/1.1 422 Unprocessable Entity
+
+{"errors": {"detail": "validation failed", "fields": {"password": ["must contain at least 1 uppercase letter"]}}}
 ```
 
 **Login**
@@ -103,8 +134,10 @@ HTTP/1.1 201 Created
 POST /api/v1/auth/login
 Content-Type: application/json
 
-{"email": "user@example.com", "password": "secret123"}
+{"identifier": "frick", "password": "Secret123", "remember_me": true}
 ```
+
+- `identifier`: username または email(`@` の有無で判定)
 
 ```json
 HTTP/1.1 200 OK
@@ -112,9 +145,35 @@ HTTP/1.1 200 OK
 {
   "access_token": "eyJ...",
   "token_type": "Bearer",
-  "expires_in": 86400
+  "expires_in": 86400,
+  "refresh_token": "opaque...",
+  "user": {"user_id": "550e8400-...", "username": "frick", "email": "user@example.com"}
 }
 ```
+
+**Refresh(Remember Me)**
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{"refresh_token": "opaque..."}
+```
+
+- 最終使用から 7 日以内なら新しいアクセストークンを発行し、使用時刻を更新(スライディング)
+- 7 日超過・失効済みは `401`
+
+**Logout**
+
+```http
+POST /api/v1/auth/logout
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{"refresh_token": "opaque..."}
+```
+
+- アクセストークン(`jti`)を失効。`refresh_token` を渡すとそれも失効(任意)
 
 **Me**
 
@@ -126,7 +185,7 @@ Authorization: Bearer eyJ...
 ```json
 HTTP/1.1 200 OK
 
-{"user_id": "550e8400-...", "email": "user@example.com", "status": "active"}
+{"user_id": "550e8400-...", "username": "frick", "email": "user@example.com", "status": "active"}
 ```
 
 ## JWT クレーム
@@ -195,12 +254,14 @@ mix phx.server
 ```powershell
 curl -X POST http://localhost:4002/api/v1/auth/register `
   -H "Content-Type: application/json" `
-  -d '{"email":"test@example.com","password":"secret123"}'
+  -d '{"username":"tester","email":"test@example.com","password":"Secret123","birthday":"2000-01-31","tos_agreed":true}'
 
 curl -X POST http://localhost:4002/api/v1/auth/login `
   -H "Content-Type: application/json" `
-  -d '{"email":"test@example.com","password":"secret123"}'
+  -d '{"identifier":"tester","password":"Secret123"}'
 ```
+
+Docker 起動時はシード（`priv/repo/seeds.exs`）によりデバッグ用アカウント（`alice` / `bob` / `carol` / `admin`、パスワードはいずれも `Password1`）が自動作成される。
 
 ## 環境変数
 
