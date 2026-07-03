@@ -15,15 +15,14 @@ defmodule Auth.Accounts.RefreshToken do
   postgres do
     table "refresh_tokens"
     repo Auth.Repo
+
+    references do
+      reference :user, on_delete: :delete, index?: true
+    end
   end
 
   attributes do
     uuid_primary_key :id
-
-    attribute :user_id, :uuid do
-      allow_nil? false
-      public? true
-    end
 
     attribute :token_hash, :string do
       allow_nil? false
@@ -40,6 +39,14 @@ defmodule Auth.Accounts.RefreshToken do
     end
 
     create_timestamp :inserted_at
+  end
+
+  relationships do
+    belongs_to :user, Auth.Accounts.User do
+      allow_nil? false
+      public? true
+      attribute_writable? true
+    end
   end
 
   identities do

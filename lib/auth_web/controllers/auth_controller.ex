@@ -1,6 +1,8 @@
 defmodule AuthWeb.AuthController do
   use AuthWeb, :controller
 
+  require Logger
+
   alias Auth.Accounts
 
   @register_required ~w(username email password birthday tos_agreed)
@@ -43,7 +45,9 @@ defmodule AuthWeb.AuthController do
         |> put_status(:unprocessable_entity)
         |> json(%{errors: register_errors(error)})
 
-      {:error, _other} ->
+      {:error, other} ->
+        Logger.error("registration failed unexpectedly: #{inspect(other)}")
+
         conn
         |> put_status(:internal_server_error)
         |> json(%{errors: %{detail: "An unexpected error occurred"}})
@@ -61,7 +65,9 @@ defmodule AuthWeb.AuthController do
         |> put_status(:unauthorized)
         |> json(%{errors: %{detail: Accounts.invalid_credentials_message()}})
 
-      {:error, _other} ->
+      {:error, other} ->
+        Logger.error("login failed unexpectedly: #{inspect(other)}")
+
         conn
         |> put_status(:internal_server_error)
         |> json(%{errors: %{detail: "An unexpected error occurred"}})
@@ -150,6 +156,11 @@ defmodule AuthWeb.AuthController do
   defp collect_field_error(%Ash.Error.Changes.InvalidArgument{field: field} = e, acc)
        when not is_nil(field) do
     put_field_error(acc, field, e.message)
+  end
+
+  defp collect_field_error(%Ash.Error.Changes.Required{field: field}, acc)
+       when not is_nil(field) do
+    put_field_error(acc, field, "is required")
   end
 
   defp collect_field_error(%Ash.Error.Changes.InvalidChanges{fields: [field | _]} = e, acc)
