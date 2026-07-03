@@ -1,13 +1,14 @@
 defmodule Auth.TokenTest do
   use Auth.DataCase, async: true
 
+  import Auth.AccountsFixtures
+
   alias Auth.Accounts
   alias Auth.Token
   alias Auth.Token.Keys
 
   setup do
-    {:ok, user} = Accounts.register("token@example.com", "password123")
-    %{user: user}
+    %{user: user_fixture(%{email: "token@example.com"})}
   end
 
   test "generates and verifies a token", %{user: user} do

@@ -14,6 +14,7 @@ defmodule AuthWeb.Router do
 
     post "/register", AuthController, :register
     post "/login", AuthController, :login
+    post "/refresh", AuthController, :refresh
   end
 
   scope "/api/v1/auth", AuthWeb do
