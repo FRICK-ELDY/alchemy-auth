@@ -4,6 +4,7 @@ defmodule AuthWeb.AuthControllerTest do
   import Auth.AccountsFixtures
 
   alias Auth.Accounts
+  alias Auth.Token.Keys
 
   defp register_params(overrides) do
     %{
@@ -153,7 +154,7 @@ defmodule AuthWeb.AuthControllerTest do
 
   describe "authenticated routes" do
     setup %{conn: conn} do
-      user_fixture(%{username: "me_user", email: "me@example.com"})
+      user = user_fixture(%{username: "me_user", email: "me@example.com"})
 
       conn =
         post(conn, ~p"/api/v1/auth/login", %{
@@ -163,9 +164,15 @@ defmodule AuthWeb.AuthControllerTest do
         })
 
       body = json_response(conn, 200)
-      auth_conn = put_req_header(build_conn(), "authorization", "Bearer " <> body["access_token"])
+      access_token = body["access_token"]
+      auth_conn = put_req_header(build_conn(), "authorization", "Bearer " <> access_token)
 
-      %{auth_conn: auth_conn, refresh_token: body["refresh_token"]}
+      %{
+        auth_conn: auth_conn,
+        refresh_token: body["refresh_token"],
+        access_token: access_token,
+        user: user
+      }
     end
 
     test "GET /api/v1/auth/me includes username", %{auth_conn: conn} do
@@ -194,7 +201,91 @@ defmodule AuthWeb.AuthControllerTest do
 
     test "rejects missing bearer token" do
       conn = get(build_conn(), ~p"/api/v1/auth/me")
-      assert json_response(conn, 401)
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
     end
+
+    test "returns 401 for a malformed bearer token" do
+      conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer not-a-jwt")
+        |> get(~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
+    end
+
+    test "returns 401 for an expired bearer token", %{user: user} do
+      conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer " <> expired_access_token(user))
+        |> get(~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
+    end
+
+    test "returns 401 for a bearer token with an invalid signature", %{access_token: access_token} do
+      conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer " <> tamper_jwt_signature(access_token))
+        |> get(~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
+    end
+
+    test "returns 403 for a suspended user with a valid token", %{auth_conn: conn, user: user} do
+      {:ok, _} =
+        user
+        |> Ash.Changeset.for_update(:set_status, %{status: :suspended})
+        |> Ash.update()
+
+      conn = get(conn, ~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Forbidden"}} = json_response(conn, 403)
+    end
+  end
+
+  defp expired_access_token(user) do
+    now = DateTime.utc_now() |> DateTime.to_unix()
+
+    claims = %{
+      "sub" => user.id,
+      "status" => to_string(user.status),
+      "jti" => Ecto.UUID.generate(),
+      "exp" => now - 60,
+      "iat" => now - 120,
+      "nbf" => now - 120
+    }
+
+    {:ok, token, _claims} =
+      Joken.generate_and_sign(access_token_config(skip: [:exp, :iat, :nbf]), claims, Keys.signer())
+
+    token
+  end
+
+  defp access_token_config(opts \\ []) do
+    ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
+    issuer = Application.fetch_env!(:auth, :jwt_issuer)
+    audience = Application.fetch_env!(:auth, :jwt_audience)
+    skip = Keyword.get(opts, :skip, [])
+
+    Joken.Config.default_claims(default_exp: ttl, iss: issuer, aud: audience, skip: skip)
+    |> Joken.Config.add_claim("sub", fn -> nil end, &valid_uuid?/1)
+    |> Joken.Config.add_claim("status", fn -> nil end, &valid_status?/1)
+    |> Joken.Config.add_claim("jti", fn -> nil end, &valid_uuid?/1)
+  end
+
+  defp valid_uuid?(value) when is_binary(value) do
+    match?({:ok, _}, Ecto.UUID.cast(value))
+  end
+
+  defp valid_uuid?(_value), do: false
+
+  defp valid_status?(value) when value in ["active", "suspended", "deleted"], do: true
+  defp valid_status?(_value), do: false
+
+  defp tamper_jwt_signature(token) do
+    [header, payload, signature] = String.split(token, ".", parts: 3)
+    <<first::binary-size(1), rest::binary>> = signature
+    tampered_first = if first == "a", do: "b", else: "a"
+    Enum.join([header, payload, tampered_first <> rest], ".")
   end
 end

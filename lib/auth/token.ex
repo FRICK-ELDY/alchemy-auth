@@ -37,16 +37,19 @@ defmodule Auth.Token do
   def verify(token) when is_binary(token) do
     signer = Keys.signer()
 
-    with {:ok, claims} <- Joken.verify_and_validate(token_config(), token, signer),
-         :ok <- ensure_not_revoked(claims["jti"]),
-         {:ok, user} <- ensure_user_active(claims["sub"]) do
-      {:ok, claims, user}
-    else
-      {:error, :revoked} -> {:error, :revoked}
-      {:error, :unauthorized} -> {:error, :unauthorized}
-      {:error, error} when is_struct(error) -> {:error, error}
-      {:error, _reason} -> {:error, :invalid_token}
+    case Joken.verify_and_validate(token_config(), token, signer) do
+      {:ok, claims} ->
+        verify_claims(claims)
+
+      {:error, reason} ->
+        {:error, {:token_validation_failed, reason}}
+
+      other ->
+        {:error, {:unexpected_token_validation_result, other}}
     end
+  rescue
+    error ->
+      {:error, {:token_verify_exception, error, __STACKTRACE__}}
   end
 
   defp token_config do
@@ -86,6 +89,18 @@ defmodule Auth.Token do
 
       {:error, error} ->
         if Auth.AshErrors.not_found?(error), do: {:error, :unauthorized}, else: {:error, error}
+    end
+  end
+
+  defp verify_claims(claims) do
+    with :ok <- ensure_not_revoked(claims["jti"]),
+         {:ok, user} <- ensure_user_active(claims["sub"]) do
+      {:ok, claims, user}
+    else
+      {:error, :revoked} -> {:error, :revoked}
+      {:error, :unauthorized} -> {:error, :unauthorized}
+      {:error, error} -> {:error, {:account_verification_failed, error}}
+      other -> {:error, {:unexpected_claim_verification_result, other}}
     end
   end
 end
