@@ -84,8 +84,11 @@ defmodule Auth.Token do
       {:ok, %{status: :active} = user} ->
         {:ok, user}
 
-      {:ok, _} ->
+      {:ok, %{status: :deleted}} ->
         {:error, :unauthorized}
+
+      {:ok, _} ->
+        {:error, :forbidden}
 
       {:error, error} ->
         if Auth.AshErrors.not_found?(error), do: {:error, :unauthorized}, else: {:error, error}
@@ -93,13 +96,15 @@ defmodule Auth.Token do
   end
 
   defp verify_claims(claims) do
-    with :ok <- ensure_not_revoked(claims["jti"]),
-         {:ok, user} <- ensure_user_active(claims["sub"]) do
+    with {:revocation, :ok} <- {:revocation, ensure_not_revoked(claims["jti"])},
+         {:user, {:ok, user}} <- {:user, ensure_user_active(claims["sub"])} do
       {:ok, claims, user}
     else
-      {:error, :revoked} -> {:error, :revoked}
-      {:error, :unauthorized} -> {:error, :unauthorized}
-      {:error, error} -> {:error, {:account_verification_failed, error}}
+      {:revocation, {:error, :revoked}} -> {:error, :revoked}
+      {:revocation, {:error, error}} -> {:error, {:revocation_check_failed, error}}
+      {:user, {:error, :unauthorized}} -> {:error, :unauthorized}
+      {:user, {:error, :forbidden}} -> {:error, :forbidden}
+      {:user, {:error, error}} -> {:error, {:account_verification_failed, error}}
       other -> {:error, {:unexpected_claim_verification_result, other}}
     end
   end

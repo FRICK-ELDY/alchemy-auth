@@ -67,7 +67,10 @@ defmodule AuthWeb.Plugs.Authenticate do
     do: failure(:unauthorized, :revoked_token, %{reason: :revoked})
 
   defp classify_failure(:unauthorized),
-    do: failure(:forbidden, :forbidden, %{reason: :unauthorized})
+    do: failure(:unauthorized, :unauthorized, %{reason: :unauthorized})
+
+  defp classify_failure(:forbidden),
+    do: failure(:forbidden, :forbidden, %{reason: :forbidden})
 
   defp classify_failure({:token_validation_failed, reason}) do
     code = if expired_reason?(reason), do: :expired_token, else: :invalid_token
@@ -76,6 +79,9 @@ defmodule AuthWeb.Plugs.Authenticate do
 
   defp classify_failure({:account_verification_failed, reason}),
     do: failure(:unauthorized, :account_verification_failed, %{reason: inspect(reason)}, :error)
+
+  defp classify_failure({:revocation_check_failed, reason}),
+    do: failure(:unauthorized, :revocation_check_failed, %{reason: inspect(reason)}, :error)
 
   defp classify_failure({:token_verify_exception, error, stacktrace}) do
     failure(
@@ -125,6 +131,7 @@ defmodule AuthWeb.Plugs.Authenticate do
 
   defp status_template(:unauthorized), do: :"401"
   defp status_template(:forbidden), do: :"403"
+  defp status_template(_status), do: :"500"
 
   defp failure(status, code, context, log_level \\ :warning) do
     %{status: status, code: code, context: context, log_level: log_level}

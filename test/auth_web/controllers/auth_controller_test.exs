@@ -231,6 +231,15 @@ defmodule AuthWeb.AuthControllerTest do
       assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
     end
 
+    test "returns 401 for a bearer token with an unknown subject" do
+      conn =
+        build_conn()
+        |> put_req_header("authorization", "Bearer " <> access_token_for_subject(Ecto.UUID.generate()))
+        |> get(~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
+    end
+
     test "returns 403 for a suspended user with a valid token", %{auth_conn: conn, user: user} do
       {:ok, _} =
         user
@@ -240,6 +249,17 @@ defmodule AuthWeb.AuthControllerTest do
       conn = get(conn, ~p"/api/v1/auth/me")
 
       assert %{"errors" => %{"detail" => "Forbidden"}} = json_response(conn, 403)
+    end
+
+    test "returns 401 for a deleted user with a valid token", %{auth_conn: conn, user: user} do
+      {:ok, _} =
+        user
+        |> Ash.Changeset.for_update(:set_status, %{status: :deleted})
+        |> Ash.update()
+
+      conn = get(conn, ~p"/api/v1/auth/me")
+
+      assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
     end
   end
 
@@ -257,6 +277,23 @@ defmodule AuthWeb.AuthControllerTest do
 
     {:ok, token, _claims} =
       Joken.generate_and_sign(access_token_config(skip: [:exp, :iat, :nbf]), claims, Keys.signer())
+
+    token
+  end
+
+  defp access_token_for_subject(subject) do
+    now = DateTime.utc_now() |> DateTime.to_unix()
+
+    claims = %{
+      "sub" => subject,
+      "status" => "active",
+      "jti" => Ecto.UUID.generate(),
+      "exp" => now + 60,
+      "iat" => now,
+      "nbf" => now
+    }
+
+    {:ok, token, _claims} = Joken.generate_and_sign(access_token_config(), claims, Keys.signer())
 
     token
   end
