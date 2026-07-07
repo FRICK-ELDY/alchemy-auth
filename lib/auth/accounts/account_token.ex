@@ -73,7 +73,6 @@ defmodule Auth.Accounts.AccountToken do
     end
 
     update :consume do
-      require_atomic? false
       accept [:used_at]
     end
   end

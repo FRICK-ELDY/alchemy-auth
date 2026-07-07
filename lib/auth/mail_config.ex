@@ -72,12 +72,14 @@ defmodule Auth.MailConfig do
     username = System.get_env("SMTP_USERNAME")
     password = System.get_env("SMTP_PASSWORD")
     tls? = System.get_env("SMTP_TLS") in ~w(true 1)
+    ssl? = System.get_env("SMTP_SSL") in ~w(true 1)
 
     smtp_config =
       [
         adapter: Swoosh.Adapters.SMTP,
         relay: relay,
         port: port,
+        ssl: ssl?,
         tls: if(tls?, do: :always, else: :never),
         auth: if(username && password, do: :always, else: :never),
         username: username,

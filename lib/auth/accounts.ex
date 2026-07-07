@@ -451,7 +451,7 @@ defmodule Auth.Accounts do
     |> Ash.Query.filter(
       expr(user_id == ^user_id and purpose == ^purpose and is_nil(used_at) and expires_at > ^now)
     )
-    |> Ash.bulk_update(:consume, %{used_at: now})
+    |> Ash.bulk_update!(:consume, %{used_at: now})
 
     :ok
   end
@@ -461,6 +461,7 @@ defmodule Auth.Accounts do
 
     case AccountToken
          |> Ash.Query.for_read(:get_by_token_hash, %{token_hash: hash, purpose: purpose})
+         |> Ash.Query.lock("FOR UPDATE")
          |> Ash.read_one() do
       {:ok, nil} ->
         {:error, :not_found}
@@ -509,7 +510,7 @@ defmodule Auth.Accounts do
   defp revoke_all_refresh_tokens(user_id, now) do
     RefreshToken
     |> Ash.Query.filter(expr(user_id == ^user_id and is_nil(revoked_at)))
-    |> Ash.bulk_update(:revoke, %{revoked_at: now})
+    |> Ash.bulk_update!(:revoke, %{revoked_at: now})
 
     :ok
   end

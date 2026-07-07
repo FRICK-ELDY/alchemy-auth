@@ -54,11 +54,16 @@ defmodule Auth.Accounts.UserEmail do
   end
 
   defp verification_url(token) do
-    Application.fetch_env!(:auth, :auth_frontend_url) <> "/verify-email?token=" <> token
+    frontend_base_url() <> "/verify-email?token=" <> token
   end
 
   defp password_reset_url(token) do
-    Application.fetch_env!(:auth, :auth_frontend_url) <> "/reset-password?token=" <> token
+    frontend_base_url() <> "/reset-password?token=" <> token
+  end
+
+  defp frontend_base_url do
+    Application.fetch_env!(:auth, :auth_frontend_url)
+    |> String.trim_trailing("/")
   end
 
   defp verification_ttl_hours do

@@ -37,6 +37,25 @@ defmodule Auth.Accounts.UserNotifierTest do
     assert email.text_body =~ "/verify-email?token=abc"
   end
 
+  test "verification_email/2 trims trailing slash from frontend base URL" do
+    previous = Application.get_env(:auth, :auth_frontend_url)
+    Application.put_env(:auth, :auth_frontend_url, "http://localhost:4000/")
+
+    on_exit(fn ->
+      if previous do
+        Application.put_env(:auth, :auth_frontend_url, previous)
+      else
+        Application.delete_env(:auth, :auth_frontend_url)
+      end
+    end)
+
+    user = email_user("url@example.com")
+    email = UserEmail.verification_email(user, "abc")
+
+    assert email.text_body =~ "http://localhost:4000/verify-email?token=abc"
+    refute email.text_body =~ "//verify-email"
+  end
+
   defp email_user(email) do
     %User{
       id: Ecto.UUID.generate(),

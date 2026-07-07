@@ -283,11 +283,13 @@ if config_env() == :dev and System.get_env("SMTP_RELAY_HOST") do
   relay = System.get_env("SMTP_RELAY_HOST")
   port = String.to_integer(System.get_env("SMTP_RELAY_PORT", "1025"))
   tls? = System.get_env("SMTP_TLS") in ~w(true 1)
+  ssl? = System.get_env("SMTP_SSL") in ~w(true 1)
 
   config :auth, Auth.Mailer,
     adapter: Swoosh.Adapters.SMTP,
     relay: relay,
     port: port,
+    ssl: ssl?,
     tls: if(tls?, do: :always, else: :never),
     auth: :never
 
