@@ -1,7 +1,7 @@
 # 実施計画: セッショントークン運用強化
 
 > 作成日: 2026-07-04
-> ステータス: 着手前
+> ステータス: 実施済み
 > 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable-specific-weaknesses.md)
 
 ---
@@ -33,12 +33,12 @@
 
 ## 4. タスク
 
-- [ ] refresh token の保存モデルを見直し、token family または親子関係を持てるようにする
-- [ ] refresh 成功時に新しい refresh token を返す
-- [ ] 旧 token の再利用を検知したときの失効方針を決める
-- [ ] access token TTL を短命化し、クライアント影響を洗い出す
-- [ ] `token_revocations` と期限切れ refresh token の GC 方針を決める
-- [ ] 正常ローテーション、再利用検知、期限切れ、GC 条件のテストを足す
+- [x] refresh token の保存モデルを見直し、token family または親子関係を持てるようにする
+- [x] refresh 成功時に新しい refresh token を返す
+- [x] 旧 token の再利用を検知したときの失効方針を決める
+- [x] access token TTL を短命化し、クライアント影響を洗い出す
+- [x] `token_revocations` と期限切れ refresh token の GC 方針を決める
+- [x] 正常ローテーション、再利用検知、期限切れ、GC 条件のテストを足す
 
 ---
 
@@ -50,7 +50,7 @@
 
 ## 6. 受け入れ条件
 
-- [ ] refresh 時に同じ token を使い回さない
-- [ ] 盗難 token の再利用を検知できる
-- [ ] access token TTL が短命化されている
-- [ ] 古い revocation / refresh token を掃除する運用が定義されている
+- [x] refresh 時に同じ token を使い回さない
+- [x] 盗難 token の再利用を検知できる
+- [x] access token TTL が短命化されている
+- [x] 古い revocation / refresh token を掃除する運用が定義されている
