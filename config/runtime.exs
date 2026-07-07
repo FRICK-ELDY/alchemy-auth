@@ -168,10 +168,56 @@ if config_env() == :prod do
         limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_TOKEN_LIMIT", 20),
         period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_TOKEN_PERIOD_MS", 60_000)
       }
+    },
+    resend_verification: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_RESEND_VERIFICATION_IP_LIMIT", 10),
+        period_ms:
+          rate_limit_env_integer.("AUTH_RATE_LIMIT_RESEND_VERIFICATION_IP_PERIOD_MS", 3_600_000)
+      },
+      email: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_RESEND_VERIFICATION_EMAIL_LIMIT", 5),
+        period_ms:
+          rate_limit_env_integer.(
+            "AUTH_RATE_LIMIT_RESEND_VERIFICATION_EMAIL_PERIOD_MS",
+            3_600_000
+          )
+      }
+    },
+    forgot_password: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_FORGOT_PASSWORD_IP_LIMIT", 10),
+        period_ms:
+          rate_limit_env_integer.("AUTH_RATE_LIMIT_FORGOT_PASSWORD_IP_PERIOD_MS", 3_600_000)
+      },
+      email: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_FORGOT_PASSWORD_EMAIL_LIMIT", 5),
+        period_ms:
+          rate_limit_env_integer.("AUTH_RATE_LIMIT_FORGOT_PASSWORD_EMAIL_PERIOD_MS", 3_600_000)
+      }
+    },
+    reset_password: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_RESET_PASSWORD_IP_LIMIT", 20),
+        period_ms:
+          rate_limit_env_integer.("AUTH_RATE_LIMIT_RESET_PASSWORD_IP_PERIOD_MS", 3_600_000)
+      }
+    },
+    verify_email: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_VERIFY_EMAIL_IP_LIMIT", 30),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_VERIFY_EMAIL_IP_PERIOD_MS", 3_600_000)
+      }
     }
   }
 
   config :auth, Auth.RateLimit, limits: rate_limit_limits
+
+  if frontend_url = System.get_env("AUTH_FRONTEND_URL") do
+    config :auth, :auth_frontend_url, frontend_url
+  end
+
+  Auth.MailConfig.configure!()
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
@@ -231,22 +277,21 @@ if config_env() == :prod do
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
+end
 
-  # ## Configuring the mailer
-  #
-  # In production you need to configure the mailer to use a different adapter.
-  # Here is an example configuration for Mailgun:
-  #
-  #     config :auth, Auth.Mailer,
-  #       adapter: Swoosh.Adapters.Mailgun,
-  #       api_key: System.get_env("MAILGUN_API_KEY"),
-  #       domain: System.get_env("MAILGUN_DOMAIN")
-  #
-  # Most non-SMTP adapters require an API client. Swoosh supports Req, Hackney,
-  # and Finch out-of-the-box. This configuration is typically done at
-  # compile-time in your config/prod.exs:
-  #
-  #     config :swoosh, :api_client, Swoosh.ApiClient.Req
-  #
-  # See https://swoosh.hexdocs.pm/Swoosh.html#module-installation for details.
+if config_env() == :dev and System.get_env("SMTP_RELAY_HOST") do
+  relay = System.get_env("SMTP_RELAY_HOST")
+  port = String.to_integer(System.get_env("SMTP_RELAY_PORT", "1025"))
+  tls? = System.get_env("SMTP_TLS") in ~w(true 1)
+
+  config :auth, Auth.Mailer,
+    adapter: Swoosh.Adapters.SMTP,
+    relay_opts: [
+      relay: relay,
+      port: port,
+      tls: if(tls?, do: :always, else: :never),
+      auth: :never
+    ]
+
+  config :swoosh, :api_client, false
 end

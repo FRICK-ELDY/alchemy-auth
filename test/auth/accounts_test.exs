@@ -29,14 +29,14 @@ defmodule Auth.AccountsTest do
     test "rejects duplicate email" do
       assert {:ok, _} = Accounts.register(valid_register_attrs(%{email: "dup@example.com"}))
 
-      assert {:error, %Ash.Error.Invalid{}} =
+      assert {:error, :register_failed} =
                Accounts.register(valid_register_attrs(%{email: "dup@example.com"}))
     end
 
     test "rejects duplicate username case-insensitively" do
       assert {:ok, _} = Accounts.register(valid_register_attrs(%{username: "Taken"}))
 
-      assert {:error, %Ash.Error.Invalid{}} =
+      assert {:error, :register_failed} =
                Accounts.register(valid_register_attrs(%{username: "taken"}))
     end
 

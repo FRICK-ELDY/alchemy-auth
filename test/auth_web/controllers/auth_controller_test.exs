@@ -29,7 +29,8 @@ defmodule AuthWeb.AuthControllerTest do
                "user" => %{
                  "user_id" => user_id,
                  "username" => "newuser",
-                 "email" => "new@example.com"
+                 "email" => "new@example.com",
+                 "email_verified" => false
                }
              } = json_response(conn, 201)
 
@@ -55,13 +56,14 @@ defmodule AuthWeb.AuthControllerTest do
       assert Map.has_key?(fields, "tos_agreed")
     end
 
-    test "returns 422 with field errors for duplicate email", %{conn: conn} do
+    test "returns generic error for duplicate email", %{conn: conn} do
       user_fixture(%{email: "dup@example.com"})
 
       conn =
         post(conn, ~p"/api/v1/auth/register", register_params(%{"email" => "dup@example.com"}))
 
-      assert %{"errors" => %{"fields" => %{"email" => [_ | _]}}} = json_response(conn, 422)
+      assert %{"errors" => %{"detail" => "could not create account"}} = json_response(conn, 422)
+      refute json_response(conn, 422)["errors"]["fields"]
     end
 
     test "returns 422 with field errors for weak password", %{conn: conn} do
@@ -190,7 +192,8 @@ defmodule AuthWeb.AuthControllerTest do
                "user_id" => _,
                "username" => "me_user",
                "email" => "me@example.com",
-               "status" => "active"
+               "status" => "active",
+               "email_verified" => false
              } = json_response(conn, 200)
     end
 

@@ -3,13 +3,16 @@ defmodule Auth.Accounts do
   Authentication operations: register, login, refresh, logout.
   """
 
-  alias Auth.Accounts.{RefreshToken, TokenRevocation, User}
+  alias Auth.Accounts.{AccountToken, RefreshToken, TokenRevocation, User, UserNotifier}
   alias Auth.{Password, Repo, Token}
 
   require Ash.Query
   import Ash.Expr
 
   @invalid_credentials_message "Invalid username/email or password"
+  @generic_register_failure "could not create account"
+  @verification_sent_message "If an account exists for that email, a verification message has been sent"
+  @password_reset_sent_message "If an account exists for that email, password reset instructions have been sent"
 
   @typedoc """
   Session payload returned to clients after register/login/refresh.
@@ -23,9 +26,23 @@ defmodule Auth.Accounts do
           optional(:refresh_token) => String.t()
         }
 
-  @spec register(map()) :: {:ok, User.t()} | {:error, Ash.Error.t()}
+  @spec register(map()) :: {:ok, User.t()} | {:error, Ash.Error.t()} | {:error, :register_failed}
   def register(attrs) when is_map(attrs) do
-    User.register(attrs)
+    case User.register(attrs) do
+      {:ok, user} = ok ->
+        _ = deliver_verification_email(user)
+        ok
+
+      {:error, %Ash.Error.Invalid{} = error} ->
+        if uniqueness_conflict?(error) do
+          {:error, :register_failed}
+        else
+          {:error, error}
+        end
+
+      other ->
+        other
+    end
   end
 
   @doc """
@@ -136,6 +153,118 @@ defmodule Auth.Accounts do
     Ash.get!(User, id)
   end
 
+  @spec verify_email(String.t()) :: :ok | {:error, :invalid_token}
+  def verify_email(token) when is_binary(token) do
+    now = utc_now()
+
+    with {:ok, record} <- fetch_account_token(token, :email_verification),
+         :ok <- ensure_account_token_usable(record, now),
+         {:ok, user} <- fetch_user(record.user_id),
+         :ok <- ensure_user_verifiable(user),
+         {:ok, _} <- consume_account_token(record, now),
+         {:ok, _} <- User.verify_email(user) do
+      :ok
+    else
+      _ -> {:error, :invalid_token}
+    end
+  end
+
+  @spec resend_verification_email(String.t()) :: :ok
+  def resend_verification_email(email) when is_binary(email) do
+    case User.get_by_email(email) do
+      {:ok, %User{status: :active, email_verified_at: nil} = user} ->
+        _ = deliver_verification_email(user)
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  @spec request_password_reset(String.t()) :: :ok
+  def request_password_reset(email) when is_binary(email) do
+    case User.get_by_email(email) do
+      {:ok, %User{status: :active} = user} ->
+        _ = deliver_password_reset_email(user)
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  @spec reset_password(String.t(), String.t()) ::
+          :ok | {:error, :invalid_token} | {:error, Ash.Error.t()}
+  def reset_password(token, password) when is_binary(token) and is_binary(password) do
+    now = utc_now()
+
+    with {:ok, record} <- fetch_account_token(token, :password_reset),
+         :ok <- ensure_account_token_usable(record, now),
+         {:ok, user} <- fetch_user(record.user_id),
+         :ok <- ensure_user_active(user),
+         {:ok, _} <- User.change_password(user, %{password: password}),
+         {:ok, _} <- consume_account_token(record, now),
+         :ok <- revoke_all_refresh_tokens(user.id, now) do
+      :ok
+    else
+      {:error, %Ash.Error.Invalid{}} = error -> error
+      _ -> {:error, :invalid_token}
+    end
+  end
+
+  @spec change_password(User.t(), String.t(), String.t()) ::
+          :ok | {:error, :invalid_credentials} | {:error, Ash.Error.t()}
+  def change_password(%User{} = user, current_password, new_password)
+      when is_binary(current_password) and is_binary(new_password) do
+    cond do
+      user.status != :active ->
+        {:error, :invalid_credentials}
+
+      not Password.verify(current_password, user.password_hash) ->
+        {:error, :invalid_credentials}
+
+      true ->
+        case User.change_password(user, %{password: new_password}) do
+          {:ok, _} ->
+            revoke_all_refresh_tokens(user.id, utc_now())
+            :ok
+
+          {:error, error} ->
+            {:error, error}
+        end
+    end
+  end
+
+  @spec deactivate_account(User.t(), String.t(), DateTime.t(), String.t() | nil) ::
+          :ok | {:error, Ash.Error.t()}
+  def deactivate_account(%User{} = user, jti, expires_at, refresh_token \\ nil) do
+    now = utc_now()
+
+    with {:ok, _} <- User.deactivate(user),
+         :ok <- revoke_all_refresh_tokens(user.id, now),
+         {:ok, _} <- logout(jti, user.id, expires_at, refresh_token) do
+      :ok
+    end
+  end
+
+  @spec generic_register_failure() :: String.t()
+  def generic_register_failure, do: @generic_register_failure
+
+  @spec verification_sent_message() :: String.t()
+  def verification_sent_message, do: @verification_sent_message
+
+  @spec password_reset_sent_message() :: String.t()
+  def password_reset_sent_message, do: @password_reset_sent_message
+
+  @doc false
+  @spec create_account_token_for_test(User.t(), :email_verification | :password_reset, keyword()) ::
+          {:ok, String.t()} | {:error, term()}
+  def create_account_token_for_test(%User{} = user, purpose, opts \\ [])
+      when purpose in [:email_verification, :password_reset] do
+    expires_at = Keyword.get(opts, :expires_at)
+    create_account_token(user, purpose, expires_at)
+  end
+
   @spec invalid_credentials_message() :: String.t()
   def invalid_credentials_message, do: @invalid_credentials_message
 
@@ -144,7 +273,8 @@ defmodule Auth.Accounts do
     %{
       user_id: user.id,
       username: to_string(user.username),
-      email: to_string(user.email)
+      email: to_string(user.email),
+      email_verified: not is_nil(user.email_verified_at)
     }
   end
 
@@ -244,5 +374,131 @@ defmodule Auth.Accounts do
     :sha256
     |> :crypto.hash(plaintext)
     |> Base.encode16(case: :lower)
+  end
+
+  defp deliver_verification_email(%User{email_verified_at: nil} = user) do
+    with {:ok, token} <- create_account_token(user, :email_verification) do
+      UserNotifier.deliver_verification_email(user, token)
+    end
+  end
+
+  defp deliver_verification_email(_user), do: :ok
+
+  defp deliver_password_reset_email(%User{} = user) do
+    with {:ok, token} <- create_account_token(user, :password_reset) do
+      UserNotifier.deliver_password_reset_email(user, token)
+    end
+  end
+
+  defp create_account_token(%User{} = user, purpose, expires_at \\ nil) do
+    invalidate_pending_account_tokens(user.id, purpose)
+
+    plaintext = 32 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+    now = utc_now()
+    expires_at = expires_at || account_token_expires_at(purpose, now)
+
+    case AccountToken.create(%{
+           user_id: user.id,
+           token_hash: hash_account_token(plaintext),
+           purpose: purpose,
+           expires_at: expires_at
+         }) do
+      {:ok, _record} -> {:ok, plaintext}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  defp invalidate_pending_account_tokens(user_id, purpose) do
+    now = utc_now()
+
+    AccountToken
+    |> Ash.Query.filter(
+      expr(user_id == ^user_id and purpose == ^purpose and is_nil(used_at) and expires_at > ^now)
+    )
+    |> Ash.bulk_update(:consume, %{used_at: now})
+
+    :ok
+  end
+
+  defp fetch_account_token(plaintext, purpose) do
+    hash = hash_account_token(plaintext)
+
+    case AccountToken
+         |> Ash.Query.for_read(:get_by_token_hash, %{token_hash: hash, purpose: purpose})
+         |> Ash.read_one() do
+      {:ok, nil} ->
+        {:error, :not_found}
+
+      {:ok, record} ->
+        {:ok, record}
+
+      {:error, error} ->
+        if Auth.AshErrors.not_found?(error), do: {:error, :not_found}, else: {:error, error}
+    end
+  end
+
+  defp ensure_account_token_usable(record, now) do
+    cond do
+      not is_nil(record.used_at) -> {:error, :used}
+      DateTime.compare(now, record.expires_at) != :lt -> {:error, :expired}
+      true -> :ok
+    end
+  end
+
+  defp consume_account_token(record, now) do
+    AccountToken.consume(record, %{used_at: now})
+  end
+
+  defp ensure_user_verifiable(%User{status: :active, email_verified_at: nil}), do: :ok
+  defp ensure_user_verifiable(%User{status: :active}), do: {:error, :already_verified}
+  defp ensure_user_verifiable(_user), do: {:error, :inactive}
+
+  defp ensure_user_active(%User{status: :active}), do: :ok
+  defp ensure_user_active(_user), do: {:error, :inactive}
+
+  defp account_token_expires_at(:email_verification, now) do
+    hours = Application.fetch_env!(:auth, :email_verification_token_ttl_hours)
+    DateTime.add(now, hours * 3_600, :second)
+  end
+
+  defp account_token_expires_at(:password_reset, now) do
+    hours = Application.fetch_env!(:auth, :password_reset_token_ttl_hours)
+    DateTime.add(now, hours * 3_600, :second)
+  end
+
+  defp hash_account_token(plaintext) do
+    hash_refresh_token(plaintext)
+  end
+
+  defp revoke_all_refresh_tokens(user_id, now) do
+    RefreshToken
+    |> Ash.Query.filter(expr(user_id == ^user_id and is_nil(revoked_at)))
+    |> Ash.bulk_update(:revoke, %{revoked_at: now})
+
+    :ok
+  end
+
+  defp uniqueness_conflict?(%Ash.Error.Invalid{errors: errors}) when is_list(errors) do
+    Enum.any?(errors, &uniqueness_conflict_error?/1)
+  end
+
+  defp uniqueness_conflict?(_), do: false
+
+  defp uniqueness_conflict_error?(%Ash.Error.Changes.InvalidAttribute{
+         field: field,
+         message: message
+       })
+       when field in [:email, :username] and is_binary(message) do
+    String.contains?(String.downcase(message), "already been taken")
+  end
+
+  defp uniqueness_conflict_error?(%Ash.Error.Invalid{errors: errors}) when is_list(errors) do
+    Enum.any?(errors, &uniqueness_conflict_error?/1)
+  end
+
+  defp uniqueness_conflict_error?(_), do: false
+
+  defp utc_now do
+    DateTime.utc_now() |> DateTime.truncate(:second)
   end
 end

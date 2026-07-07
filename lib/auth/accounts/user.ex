@@ -55,6 +55,10 @@ defmodule Auth.Accounts.User do
       allow_nil? false
     end
 
+    attribute :email_verified_at, :utc_datetime do
+      public? true
+    end
+
     create_timestamp :inserted_at
     update_timestamp :updated_at
   end
@@ -125,6 +129,30 @@ defmodule Auth.Accounts.User do
     update :set_status do
       accept [:status]
     end
+
+    update :verify_email do
+      require_atomic? false
+
+      change fn changeset, _ ->
+        Ash.Changeset.change_attribute(
+          changeset,
+          :email_verified_at,
+          DateTime.utc_now() |> DateTime.truncate(:second)
+        )
+      end
+    end
+
+    update :change_password do
+      require_atomic? false
+      argument :password, :string, allow_nil?: false, sensitive?: true
+
+      validate {Auth.Accounts.Validations.PasswordComplexity, argument: :password}
+      change {Auth.Accounts.Changes.SetPasswordHash, argument: :password}
+    end
+
+    update :deactivate do
+      change set_attribute(:status, :deleted)
+    end
   end
 
   code_interface do
@@ -132,5 +160,8 @@ defmodule Auth.Accounts.User do
     define :get_by_email, action: :get_by_email, args: [:email]
     define :get_by_username, action: :get_by_username, args: [:username]
     define :set_status, action: :set_status
+    define :verify_email, action: :verify_email
+    define :change_password, action: :change_password
+    define :deactivate, action: :deactivate
   end
 end

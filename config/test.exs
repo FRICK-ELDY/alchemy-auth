@@ -55,5 +55,19 @@ config :auth, Auth.RateLimit,
     refresh: %{
       ip: %{limit: 10_000, period_ms: 60_000},
       token: %{limit: 10_000, period_ms: 60_000}
+    },
+    resend_verification: %{
+      ip: %{limit: 10_000, period_ms: 3_600_000},
+      email: %{limit: 10_000, period_ms: 3_600_000}
+    },
+    forgot_password: %{
+      ip: %{limit: 10_000, period_ms: 3_600_000},
+      email: %{limit: 10_000, period_ms: 3_600_000}
+    },
+    reset_password: %{
+      ip: %{limit: 10_000, period_ms: 3_600_000}
+    },
+    verify_email: %{
+      ip: %{limit: 10_000, period_ms: 3_600_000}
     }
   }

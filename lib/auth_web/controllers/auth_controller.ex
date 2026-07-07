@@ -40,6 +40,11 @@ defmodule AuthWeb.AuthController do
       |> put_status(:created)
       |> json(session)
     else
+      {:error, :register_failed} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: %{detail: Accounts.generic_register_failure()}})
+
       {:error, %Ash.Error.Invalid{} = error} ->
         conn
         |> put_status(:unprocessable_entity)
@@ -121,8 +126,114 @@ defmodule AuthWeb.AuthController do
       user_id: user.id,
       username: to_string(user.username),
       email: to_string(user.email),
-      status: to_string(user.status)
+      status: to_string(user.status),
+      email_verified: not is_nil(user.email_verified_at)
     })
+  end
+
+  def verify_email(conn, %{"token" => token}) when is_binary(token) do
+    case Accounts.verify_email(token) do
+      :ok ->
+        send_resp(conn, :no_content, "")
+
+      {:error, :invalid_token} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: %{detail: "Invalid or expired verification token"}})
+    end
+  end
+
+  def verify_email(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{errors: %{detail: "Invalid or expired verification token"}})
+  end
+
+  def resend_verification(conn, %{"email" => email}) when is_binary(email) do
+    :ok = Accounts.resend_verification_email(email)
+
+    json(conn, %{message: Accounts.verification_sent_message()})
+  end
+
+  def resend_verification(conn, _params) do
+    json(conn, %{message: Accounts.verification_sent_message()})
+  end
+
+  def forgot_password(conn, %{"email" => email}) when is_binary(email) do
+    :ok = Accounts.request_password_reset(email)
+
+    json(conn, %{message: Accounts.password_reset_sent_message()})
+  end
+
+  def forgot_password(conn, _params) do
+    json(conn, %{message: Accounts.password_reset_sent_message()})
+  end
+
+  def reset_password(conn, %{"token" => token, "password" => password})
+      when is_binary(token) and is_binary(password) do
+    case Accounts.reset_password(token, password) do
+      :ok ->
+        send_resp(conn, :no_content, "")
+
+      {:error, :invalid_token} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: %{detail: "Invalid or expired reset token"}})
+
+      {:error, %Ash.Error.Invalid{} = error} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: register_errors(error)})
+    end
+  end
+
+  def reset_password(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{errors: %{detail: "Invalid or expired reset token"}})
+  end
+
+  def change_password(conn, %{"current_password" => current, "new_password" => new})
+      when is_binary(current) and is_binary(new) do
+    user = conn.assigns.current_user
+
+    case Accounts.change_password(user, current, new) do
+      :ok ->
+        send_resp(conn, :no_content, "")
+
+      {:error, :invalid_credentials} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{errors: %{detail: Accounts.invalid_credentials_message()}})
+
+      {:error, %Ash.Error.Invalid{} = error} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: register_errors(error)})
+    end
+  end
+
+  def change_password(conn, _params) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> json(%{errors: %{detail: "current_password and new_password are required"}})
+  end
+
+  def deactivate(conn, params) do
+    user = conn.assigns.current_user
+    claims = conn.assigns.token_claims
+    expires_at = DateTime.from_unix!(claims["exp"])
+    refresh_token = presence(params["refresh_token"])
+
+    case Accounts.deactivate_account(user, claims["jti"], expires_at, refresh_token) do
+      :ok ->
+        send_resp(conn, :no_content, "")
+
+      {:error, _error} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: %{detail: "could not deactivate account"}})
+    end
   end
 
   defp blank?(nil), do: true

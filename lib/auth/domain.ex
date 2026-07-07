@@ -9,5 +9,6 @@ defmodule Auth.Domain do
     resource Auth.Accounts.User
     resource Auth.Accounts.TokenRevocation
     resource Auth.Accounts.RefreshToken
+    resource Auth.Accounts.AccountToken
   end
 end

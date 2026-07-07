@@ -19,12 +19,18 @@ defmodule AuthWeb.Router do
     post "/register", AuthController, :register
     post "/login", AuthController, :login
     post "/refresh", AuthController, :refresh
+    post "/verify-email", AuthController, :verify_email
+    post "/resend-verification", AuthController, :resend_verification
+    post "/forgot-password", AuthController, :forgot_password
+    post "/reset-password", AuthController, :reset_password
   end
 
   scope "/api/v1/auth", AuthWeb do
     pipe_through [:api, :authenticated]
 
     post "/logout", AuthController, :logout
+    post "/change-password", AuthController, :change_password
+    post "/deactivate", AuthController, :deactivate
     get "/me", AuthController, :me
   end
 
