@@ -50,19 +50,18 @@ defmodule Auth.Token.KeysTest do
   end
 
   test "rejects duplicate kid across key paths" do
-    pem = File.read!(@primary_path)
+    Application.put_env(:auth, :jwt_verification_key_paths, [@primary_path])
 
-    kids =
-      [pem, pem]
-      |> Enum.map(fn pem ->
-        pem
-        |> JOSE.JWK.from_pem()
-        |> JOSE.JWK.to_public()
-        |> thumbprint_kid()
-      end)
+    _ = Supervisor.terminate_child(Auth.Supervisor, Keys)
+    assert {:ok, pid} = Supervisor.restart_child(Auth.Supervisor, Keys)
 
-    assert length(kids) == 2
-    assert Enum.uniq(kids) != kids
+    ref = Process.monitor(pid)
+
+    assert_receive {:DOWN, ^ref, :process, _, {%ArgumentError{message: message}, _}}, 5_000
+    assert message =~ "duplicate JWT key ids"
+
+    Application.put_env(:auth, :jwt_verification_key_paths, [])
+    restart_keys!()
   end
 
   test "verifies token signed with previous key after rotation" do
@@ -126,12 +125,5 @@ defmodule Auth.Token.KeysTest do
   defp peek_token_kid(token) do
     [header_b64 | _] = String.split(token, ".")
     header_b64 |> Base.url_decode64!(padding: false) |> Jason.decode!() |> Map.fetch!("kid")
-  end
-
-  defp thumbprint_kid(jwk) do
-    case JOSE.JWK.thumbprint(jwk) do
-      {:kid, kid} -> kid
-      kid when is_binary(kid) -> kid
-    end
   end
 end

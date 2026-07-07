@@ -99,7 +99,11 @@ if config_env() == :prod do
     case System.get_env("JWT_VERIFICATION_KEY_PATHS") do
       nil -> []
       "" -> []
-      value -> value |> String.split(",", trim: true) |> Enum.reject(&(&1 == ""))
+      value ->
+        value
+        |> String.split(",", trim: true)
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
     end
 
   config :auth, :jwt_verification_key_paths, jwt_verification_key_paths
