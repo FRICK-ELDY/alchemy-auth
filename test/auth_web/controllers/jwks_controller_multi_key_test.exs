@@ -56,8 +56,12 @@ defmodule AuthWeb.JwksControllerMultiKeyTest do
   defp wait_for_keys! do
     Enum.reduce_while(1..100, :error, fn _, _ ->
       case Keys.jwks() do
-        %{"keys" => [_ | _]} -> {:halt, :ok}
-        _ -> Process.sleep(20); {:cont, :error}
+        %{"keys" => [_ | _]} ->
+          {:halt, :ok}
+
+        _ ->
+          Process.sleep(20)
+          {:cont, :error}
       end
     end)
     |> case do

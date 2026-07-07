@@ -20,7 +20,8 @@ defmodule Auth.Token.Keys do
   def jwks, do: GenServer.call(__MODULE__, :jwks)
 
   @spec signer_for_kid(String.t()) :: {:ok, Joken.Signer.t()} | {:error, :unknown_kid}
-  def signer_for_kid(kid) when is_binary(kid), do: GenServer.call(__MODULE__, {:signer_for_kid, kid})
+  def signer_for_kid(kid) when is_binary(kid),
+    do: GenServer.call(__MODULE__, {:signer_for_kid, kid})
 
   @impl true
   def init(_opts) do
