@@ -95,6 +95,23 @@ if config_env() == :prod do
          :jwt_private_key_path,
          System.get_env("JWT_PRIVATE_KEY_PATH") || "priv/jwt_private.pem"
 
+  jwt_verification_key_paths =
+    case System.get_env("JWT_VERIFICATION_KEY_PATHS") do
+      nil -> []
+      "" -> []
+      value -> value |> String.split(",", trim: true) |> Enum.reject(&(&1 == ""))
+    end
+
+  config :auth, :jwt_verification_key_paths, jwt_verification_key_paths
+
+  if issuer = System.get_env("JWT_ISSUER") do
+    config :auth, :jwt_issuer, issuer
+  end
+
+  if audience = System.get_env("JWT_AUDIENCE") do
+    config :auth, :jwt_audience, audience
+  end
+
   config :auth, :jwt_generate_key_on_startup, false
 
   trusted_proxies =
