@@ -73,22 +73,20 @@ defmodule Auth.MailConfig do
     password = System.get_env("SMTP_PASSWORD")
     tls? = System.get_env("SMTP_TLS") in ~w(true 1)
 
-    relay_opts =
+    smtp_config =
       [
+        adapter: Swoosh.Adapters.SMTP,
         relay: relay,
         port: port,
         tls: if(tls?, do: :always, else: :never),
         auth: if(username && password, do: :always, else: :never),
         username: username,
-        password: password
+        password: password,
+        from: mail_from
       ]
       |> Enum.reject(fn {_key, value} -> is_nil(value) end)
 
-    Application.put_env(:auth, Auth.Mailer,
-      adapter: Swoosh.Adapters.SMTP,
-      relay_opts: relay_opts,
-      from: mail_from
-    )
+    Application.put_env(:auth, Auth.Mailer, smtp_config)
   end
 
   defp fetch_env!(name) do

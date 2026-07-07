@@ -7,6 +7,7 @@ defmodule Auth.Accounts do
   alias Auth.{Password, Repo, Token}
 
   require Ash.Query
+  require Logger
   import Ash.Expr
 
   @invalid_credentials_message "Invalid username/email or password"
@@ -157,15 +158,21 @@ defmodule Auth.Accounts do
   def verify_email(token) when is_binary(token) do
     now = utc_now()
 
-    with {:ok, record} <- fetch_account_token(token, :email_verification),
-         :ok <- ensure_account_token_usable(record, now),
-         {:ok, user} <- fetch_user(record.user_id),
-         :ok <- ensure_user_verifiable(user),
-         {:ok, _} <- consume_account_token(record, now),
-         {:ok, _} <- User.verify_email(user) do
-      :ok
-    else
-      _ -> {:error, :invalid_token}
+    case Repo.transaction(fn ->
+           with {:ok, record} <- fetch_account_token(token, :email_verification),
+                :ok <- ensure_account_token_usable(record, now),
+                {:ok, user} <- fetch_user(record.user_id),
+                :ok <- ensure_user_verifiable(user),
+                {:ok, _} <- consume_account_token(record, now),
+                {:ok, _} <- User.verify_email(user) do
+             :ok
+           else
+             _ -> Repo.rollback(:invalid_token)
+           end
+         end) do
+      {:ok, :ok} -> :ok
+      {:error, :invalid_token} -> {:error, :invalid_token}
+      {:error, _} -> {:error, :invalid_token}
     end
   end
 
@@ -198,17 +205,24 @@ defmodule Auth.Accounts do
   def reset_password(token, password) when is_binary(token) and is_binary(password) do
     now = utc_now()
 
-    with {:ok, record} <- fetch_account_token(token, :password_reset),
-         :ok <- ensure_account_token_usable(record, now),
-         {:ok, user} <- fetch_user(record.user_id),
-         :ok <- ensure_user_active(user),
-         {:ok, _} <- User.change_password(user, %{password: password}),
-         {:ok, _} <- consume_account_token(record, now),
-         :ok <- revoke_all_refresh_tokens(user.id, now) do
-      :ok
-    else
-      {:error, %Ash.Error.Invalid{}} = error -> error
-      _ -> {:error, :invalid_token}
+    case Repo.transaction(fn ->
+           with {:ok, record} <- fetch_account_token(token, :password_reset),
+                :ok <- ensure_account_token_usable(record, now),
+                {:ok, user} <- fetch_user(record.user_id),
+                :ok <- ensure_user_active(user),
+                {:ok, _} <- User.change_password(user, %{password: password}),
+                {:ok, _} <- consume_account_token(record, now),
+                :ok <- revoke_all_refresh_tokens(user.id, now) do
+             :ok
+           else
+             {:error, %Ash.Error.Invalid{} = error} -> Repo.rollback(error)
+             _ -> Repo.rollback(:invalid_token)
+           end
+         end) do
+      {:ok, :ok} -> :ok
+      {:error, %Ash.Error.Invalid{} = error} -> {:error, error}
+      {:error, :invalid_token} -> {:error, :invalid_token}
+      {:error, _} -> {:error, :invalid_token}
     end
   end
 
@@ -224,13 +238,18 @@ defmodule Auth.Accounts do
         {:error, :invalid_credentials}
 
       true ->
-        case User.change_password(user, %{password: new_password}) do
-          {:ok, _} ->
-            revoke_all_refresh_tokens(user.id, utc_now())
-            :ok
+        case Repo.transaction(fn ->
+               case User.change_password(user, %{password: new_password}) do
+                 {:ok, _} ->
+                   revoke_all_refresh_tokens(user.id, utc_now())
+                   :ok
 
-          {:error, error} ->
-            {:error, error}
+                 {:error, error} ->
+                   Repo.rollback(error)
+               end
+             end) do
+          {:ok, :ok} -> :ok
+          {:error, error} -> {:error, error}
         end
     end
   end
@@ -240,10 +259,17 @@ defmodule Auth.Accounts do
   def deactivate_account(%User{} = user, jti, expires_at, refresh_token \\ nil) do
     now = utc_now()
 
-    with {:ok, _} <- User.deactivate(user),
-         :ok <- revoke_all_refresh_tokens(user.id, now),
-         {:ok, _} <- logout(jti, user.id, expires_at, refresh_token) do
-      :ok
+    case Repo.transaction(fn ->
+           with {:ok, _} <- User.deactivate(user),
+                :ok <- revoke_all_refresh_tokens(user.id, now),
+                {:ok, _} <- logout(jti, user.id, expires_at, refresh_token) do
+             :ok
+           else
+             {:error, error} -> Repo.rollback(error)
+           end
+         end) do
+      {:ok, :ok} -> :ok
+      {:error, error} -> {:error, error}
     end
   end
 
@@ -377,16 +403,26 @@ defmodule Auth.Accounts do
   end
 
   defp deliver_verification_email(%User{email_verified_at: nil} = user) do
-    with {:ok, token} <- create_account_token(user, :email_verification) do
-      UserNotifier.deliver_verification_email(user, token)
+    case create_account_token(user, :email_verification) do
+      {:ok, token} ->
+        UserNotifier.deliver_verification_email(user, token)
+
+      {:error, reason} ->
+        Logger.error("failed to create email verification token: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
   defp deliver_verification_email(_user), do: :ok
 
   defp deliver_password_reset_email(%User{} = user) do
-    with {:ok, token} <- create_account_token(user, :password_reset) do
-      UserNotifier.deliver_password_reset_email(user, token)
+    case create_account_token(user, :password_reset) do
+      {:ok, token} ->
+        UserNotifier.deliver_password_reset_email(user, token)
+
+      {:error, reason} ->
+        Logger.error("failed to create password reset token: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 

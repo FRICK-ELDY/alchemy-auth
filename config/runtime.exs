@@ -286,12 +286,10 @@ if config_env() == :dev and System.get_env("SMTP_RELAY_HOST") do
 
   config :auth, Auth.Mailer,
     adapter: Swoosh.Adapters.SMTP,
-    relay_opts: [
-      relay: relay,
-      port: port,
-      tls: if(tls?, do: :always, else: :never),
-      auth: :never
-    ]
+    relay: relay,
+    port: port,
+    tls: if(tls?, do: :always, else: :never),
+    auth: :never
 
   config :swoosh, :api_client, false
 end
