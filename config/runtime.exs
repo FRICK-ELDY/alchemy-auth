@@ -97,8 +97,12 @@ if config_env() == :prod do
 
   jwt_verification_key_paths =
     case System.get_env("JWT_VERIFICATION_KEY_PATHS") do
-      nil -> []
-      "" -> []
+      nil ->
+        []
+
+      "" ->
+        []
+
       value ->
         value
         |> String.split(",", trim: true)
