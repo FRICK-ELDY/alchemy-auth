@@ -234,7 +234,10 @@ defmodule AuthWeb.AuthControllerTest do
     test "returns 401 for a bearer token with an unknown subject" do
       conn =
         build_conn()
-        |> put_req_header("authorization", "Bearer " <> access_token_for_subject(Ecto.UUID.generate()))
+        |> put_req_header(
+          "authorization",
+          "Bearer " <> access_token_for_subject(Ecto.UUID.generate())
+        )
         |> get(~p"/api/v1/auth/me")
 
       assert %{"errors" => %{"detail" => "Unauthorized"}} = json_response(conn, 401)
@@ -276,7 +279,11 @@ defmodule AuthWeb.AuthControllerTest do
     }
 
     {:ok, token, _claims} =
-      Joken.generate_and_sign(access_token_config(skip: [:exp, :iat, :nbf]), claims, Keys.signer())
+      Joken.generate_and_sign(
+        access_token_config(skip: [:exp, :iat, :nbf]),
+        claims,
+        Keys.signer()
+      )
 
     token
   end
