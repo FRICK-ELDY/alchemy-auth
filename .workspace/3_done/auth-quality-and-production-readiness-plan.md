@@ -1,7 +1,7 @@
 # 実施計画: auth 品質ゲートと本番運用基盤の整備
 
 > 作成日: 2026-07-04
-> ステータス: 着手前
+> ステータス: 完了
 > 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable-specific-weaknesses.md)
 
 ---
@@ -35,19 +35,19 @@
 
 ## 4. タスク
 
-- [ ] CI に `mix format --check-formatted` を追加する
-- [ ] CI に `mix compile --warnings-as-errors` を追加する
-- [ ] CI に `mix credo` を追加する
-- [ ] release ビルド手順と本番 Docker 起動方針を決める
-- [ ] `/health` の返却内容を定義する
-- [ ] DB SSL 設定を TODO のままにせず環境変数で制御可能にする
-- [ ] README または deploy 文書に本番起動手順を追記する
+- [x] CI に `mix format --check-formatted` を追加する
+- [x] CI に `mix compile --warnings-as-errors` を追加する
+- [x] CI に `mix credo` を追加する
+- [x] release ビルド手順と本番 Docker 起動方針を決める
+- [x] `/health` の返却内容を定義する
+- [x] DB SSL 設定を TODO のままにせず環境変数で制御可能にする
+- [x] README または deploy 文書に本番起動手順を追記する
 
 ---
 
 ## 5. 受け入れ条件
 
-- [ ] CI で format / compile / test / credo が走る
-- [ ] warning 混入で CI が失敗する
-- [ ] 本番向け起動経路が 1 つ定義されている
-- [ ] ヘルスチェックと DB SSL 設定の運用方法が文書化されている
+- [x] CI で format / compile / test / credo が走る
+- [x] warning 混入で CI が失敗する
+- [x] 本番向け起動経路が 1 つ定義されている
+- [x] ヘルスチェックと DB SSL 設定の運用方法が文書化されている

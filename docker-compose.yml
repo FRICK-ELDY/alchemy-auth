@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: dev
     ports:
       - "4002:4002"
     environment:
@@ -36,7 +37,8 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "mix ash.setup &&
+      sh -c "mix deps.get &&
+             mix ash.setup &&
              mix ecto.create &&
              mix ecto.migrate &&
              mix run priv/repo/seeds.exs &&
