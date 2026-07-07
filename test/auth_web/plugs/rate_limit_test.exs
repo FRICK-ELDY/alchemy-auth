@@ -144,7 +144,10 @@ defmodule AuthWeb.Plugs.RateLimitTest do
       %{refresh_token: session.refresh_token}
     end
 
-    test "returns 429 when the token limit is exceeded", %{conn: conn, refresh_token: refresh_token} do
+    test "returns 429 when the token limit is exceeded", %{
+      conn: conn,
+      refresh_token: refresh_token
+    } do
       for index <- 1..2 do
         conn =
           conn

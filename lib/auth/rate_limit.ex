@@ -37,7 +37,14 @@ defmodule Auth.RateLimit do
 
   @impl true
   def init(_opts) do
-    :ets.new(@table, [:named_table, :public, :set, write_concurrency: true, read_concurrency: true])
+    :ets.new(@table, [
+      :named_table,
+      :public,
+      :set,
+      write_concurrency: true,
+      read_concurrency: true
+    ])
+
     schedule_cleanup()
     {:ok, %{}}
   end
