@@ -81,8 +81,10 @@ defmodule Auth.AccountsTest do
     end
 
     test "logs in with email" do
+      ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
+
       assert {:ok, session} = Accounts.login("login@example.com", default_password())
-      assert %{access_token: token, token_type: "Bearer", expires_in: 86_400} = session
+      assert %{access_token: token, token_type: "Bearer", expires_in: ^ttl} = session
       assert is_binary(token)
       assert session.user.username == "login_user"
       refute Map.has_key?(session, :refresh_token)
@@ -130,33 +132,61 @@ defmodule Auth.AccountsTest do
       %{user: user, refresh_token: session.refresh_token}
     end
 
-    test "issues a new access token", %{refresh_token: refresh_token, user: user} do
+    test "issues a new access token and rotates the refresh token", %{
+      refresh_token: refresh_token,
+      user: user
+    } do
       assert {:ok, session} = Accounts.refresh(refresh_token)
       assert is_binary(session.access_token)
-      assert session.refresh_token == refresh_token
+      assert is_binary(session.refresh_token)
+      assert session.refresh_token != refresh_token
       assert session.user.user_id == user.id
     end
 
-    test "slides the inactivity window on use", %{refresh_token: refresh_token} do
-      {:ok, record} = RefreshToken.get_by_token_hash(hash_token(refresh_token))
-      stale = DateTime.add(DateTime.utc_now(), -6 * 86_400, :second) |> DateTime.truncate(:second)
-      {:ok, _} = RefreshToken.touch(record, %{last_used_at: stale})
-
+    test "rejects a rotated refresh token", %{refresh_token: refresh_token} do
       assert {:ok, _} = Accounts.refresh(refresh_token)
-
-      {:ok, touched} = RefreshToken.get_by_token_hash(hash_token(refresh_token))
-      assert DateTime.diff(DateTime.utc_now(), touched.last_used_at) < 60
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
     end
 
-    test "rejects a token unused for more than 7 days", %{refresh_token: refresh_token} do
+    test "does not revoke the token family on immediate reuse", %{refresh_token: refresh_token} do
+      assert {:ok, %{refresh_token: current}} = Accounts.refresh(refresh_token)
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
+      assert {:ok, _} = Accounts.refresh(current)
+    end
+
+    test "revokes the token family when reuse happens after the grace period", %{
+      refresh_token: refresh_token
+    } do
+      assert {:ok, %{refresh_token: current}} = Accounts.refresh(refresh_token)
+
       {:ok, record} = RefreshToken.get_by_token_hash(hash_token(refresh_token))
 
+      outside_grace =
+        DateTime.add(DateTime.utc_now(), -30, :second) |> DateTime.truncate(:second)
+
+      {:ok, _} = RefreshToken.revoke(record, %{revoked_at: outside_grace})
+
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(current)
+    end
+
+    test "slides the inactivity window on use", %{user: user} do
+      stale = DateTime.add(DateTime.utc_now(), -6 * 86_400, :second) |> DateTime.truncate(:second)
+      {:ok, stale_token} = create_refresh_token_for_user(user, stale)
+
+      assert {:ok, session} = Accounts.refresh(stale_token)
+
+      {:ok, record} = RefreshToken.get_by_token_hash(hash_token(session.refresh_token))
+      assert DateTime.diff(DateTime.utc_now(), record.last_used_at) < 60
+    end
+
+    test "rejects a token unused for more than 7 days", %{user: user} do
       expired =
         DateTime.add(DateTime.utc_now(), -8 * 86_400, :second) |> DateTime.truncate(:second)
 
-      {:ok, _} = RefreshToken.touch(record, %{last_used_at: expired})
+      {:ok, expired_token} = create_refresh_token_for_user(user, expired)
 
-      assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(expired_token)
     end
 
     test "rejects a revoked token", %{refresh_token: refresh_token} do
@@ -214,5 +244,19 @@ defmodule Auth.AccountsTest do
 
   defp hash_token(plaintext) do
     :sha256 |> :crypto.hash(plaintext) |> Base.encode16(case: :lower)
+  end
+
+  defp create_refresh_token_for_user(user, last_used_at) do
+    plaintext = 32 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+
+    assert {:ok, _record} =
+             RefreshToken.create(%{
+               user_id: user.id,
+               family_id: Ecto.UUID.generate(),
+               token_hash: hash_token(plaintext),
+               last_used_at: last_used_at
+             })
+
+    {:ok, plaintext}
   end
 end

@@ -11,6 +11,7 @@ defmodule Auth.Application do
       AuthWeb.Telemetry,
       Auth.RateLimit,
       Auth.Repo,
+      Auth.TokenCleanup,
       Auth.Token.Keys,
       {DNSCluster, query: Application.get_env(:auth, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Auth.PubSub},

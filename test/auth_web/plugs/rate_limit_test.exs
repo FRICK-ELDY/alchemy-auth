@@ -210,23 +210,22 @@ defmodule AuthWeb.Plugs.RateLimitTest do
       %{refresh_token: session.refresh_token}
     end
 
-    test "returns 429 when the token limit is exceeded", %{
-      conn: conn,
-      refresh_token: refresh_token
-    } do
-      for index <- 1..2 do
-        conn =
-          conn
-          |> with_ip("10.2.0.#{index}")
-          |> post(~p"/api/v1/auth/refresh", %{"refresh_token" => refresh_token})
+    test "returns 429 when the token family limit is exceeded", %{refresh_token: refresh_token} do
+      current_token =
+        Enum.reduce(1..2, refresh_token, fn index, token ->
+          conn =
+            build_conn()
+            |> with_ip("10.2.0.#{index}")
+            |> post(~p"/api/v1/auth/refresh", %{"refresh_token" => token})
 
-        assert json_response(conn, 200)
-      end
+          assert %{"refresh_token" => next_token} = json_response(conn, 200)
+          next_token
+        end)
 
       conn =
-        conn
+        build_conn()
         |> with_ip("10.2.0.99")
-        |> post(~p"/api/v1/auth/refresh", %{"refresh_token" => refresh_token})
+        |> post(~p"/api/v1/auth/refresh", %{"refresh_token" => current_token})
 
       assert json_response(conn, 429)
     end

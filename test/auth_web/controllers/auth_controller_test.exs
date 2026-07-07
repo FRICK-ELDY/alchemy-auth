@@ -19,12 +19,13 @@ defmodule AuthWeb.AuthControllerTest do
 
   describe "POST /api/v1/auth/register" do
     test "creates a user and returns a session", %{conn: conn} do
+      ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
       conn = post(conn, ~p"/api/v1/auth/register", register_params(%{}))
 
       assert %{
                "access_token" => token,
                "token_type" => "Bearer",
-               "expires_in" => 86_400,
+               "expires_in" => ^ttl,
                "user" => %{
                  "user_id" => user_id,
                  "username" => "newuser",
@@ -85,6 +86,8 @@ defmodule AuthWeb.AuthControllerTest do
     end
 
     test "logs in with email identifier", %{conn: conn} do
+      ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
+
       conn =
         post(conn, ~p"/api/v1/auth/login", %{
           "identifier" => "api@example.com",
@@ -94,7 +97,7 @@ defmodule AuthWeb.AuthControllerTest do
       assert %{
                "access_token" => token,
                "token_type" => "Bearer",
-               "expires_in" => 86_400,
+               "expires_in" => ^ttl,
                "user" => %{"username" => "api_user"}
              } = json_response(conn, 200)
 
@@ -132,13 +135,18 @@ defmodule AuthWeb.AuthControllerTest do
       %{refresh_token: session.refresh_token}
     end
 
-    test "returns a new access token", %{conn: conn, refresh_token: refresh_token} do
+    test "returns a new access token and rotated refresh token", %{
+      conn: conn,
+      refresh_token: refresh_token
+    } do
       conn = post(conn, ~p"/api/v1/auth/refresh", %{"refresh_token" => refresh_token})
 
-      assert %{"access_token" => token, "refresh_token" => ^refresh_token} =
+      assert %{"access_token" => token, "refresh_token" => new_refresh_token} =
                json_response(conn, 200)
 
       assert is_binary(token)
+      assert is_binary(new_refresh_token)
+      assert new_refresh_token != refresh_token
     end
 
     test "returns 401 for an unknown token", %{conn: conn} do
