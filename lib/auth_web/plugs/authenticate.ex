@@ -43,8 +43,17 @@ defmodule AuthWeb.Plugs.Authenticate do
          {:ok, claims, user} <- Token.verify(token) do
       {:ok, claims, user}
     else
-      {:error, reason} -> {:error, classify_failure(reason)}
-      other -> {:error, failure(:unauthorized, :unexpected_authenticate_result, %{result: inspect(other)}, :error)}
+      {:error, reason} ->
+        {:error, classify_failure(reason)}
+
+      other ->
+        {:error,
+         failure(
+           :unauthorized,
+           :unexpected_authenticate_result,
+           %{result: inspect(other)},
+           :error
+         )}
     end
   rescue
     error ->
@@ -111,7 +120,13 @@ defmodule AuthWeb.Plugs.Authenticate do
       )
 
   defp classify_failure(reason),
-    do: failure(:unauthorized, :unexpected_authentication_failure, %{reason: inspect(reason)}, :error)
+    do:
+      failure(
+        :unauthorized,
+        :unexpected_authentication_failure,
+        %{reason: inspect(reason)},
+        :error
+      )
 
   defp expired_reason?(:token_expired), do: true
 
