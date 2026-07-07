@@ -71,7 +71,10 @@ defmodule Auth.RateLimit do
     count = :ets.update_counter(@table, ets_key, {2, 1}, {ets_key, 0})
 
     if count > limit do
-      emit_throttle(bucket)
+      if count == limit + 1 do
+        emit_throttle(bucket)
+      end
+
       {:error, :rate_limited}
     else
       :ok

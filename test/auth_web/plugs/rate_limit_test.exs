@@ -66,7 +66,9 @@ defmodule AuthWeb.Plugs.RateLimitTest do
         })
 
       assert %{"errors" => %{"detail" => "Too many requests"}} = json_response(conn, 429)
-      assert get_resp_header(conn, "retry-after") == ["60"]
+
+      [retry_after] = get_resp_header(conn, "retry-after")
+      assert String.to_integer(retry_after) in 1..60
     end
 
     test "returns 429 when the identifier limit is exceeded", %{conn: conn} do
@@ -108,7 +110,7 @@ defmodule AuthWeb.Plugs.RateLimitTest do
       exhausted_conn =
         conn
         |> Map.put(:remote_ip, {10, 0, 0, 1})
-        |> Plug.Conn.put_req_header("x-forwarded-for", "")
+        |> Plug.Conn.delete_req_header("x-forwarded-for")
 
       for index <- 1..2 do
         exhausted_conn =
@@ -131,13 +133,41 @@ defmodule AuthWeb.Plugs.RateLimitTest do
       other_conn =
         conn
         |> Map.put(:remote_ip, {10, 0, 0, 2})
-        |> Plug.Conn.put_req_header("x-forwarded-for", "   ")
+        |> Plug.Conn.delete_req_header("x-forwarded-for")
         |> post(~p"/api/v1/auth/login", %{
           "identifier" => "other-remote@example.com",
           "password" => "Wrong-password1"
         })
 
       assert json_response(other_conn, 401)
+    end
+
+    test "ignores spoofed x-forwarded-for from untrusted peers", %{conn: conn} do
+      attacker_ip = {203, 0, 113, 10}
+
+      for index <- 1..2 do
+        conn =
+          conn
+          |> Map.put(:remote_ip, attacker_ip)
+          |> Plug.Conn.put_req_header("x-forwarded-for", "1.1.1.#{index}")
+          |> post(~p"/api/v1/auth/login", %{
+            "identifier" => "spoof-#{index}@example.com",
+            "password" => "Wrong-password1"
+          })
+
+        assert json_response(conn, 401)
+      end
+
+      conn =
+        conn
+        |> Map.put(:remote_ip, attacker_ip)
+        |> Plug.Conn.put_req_header("x-forwarded-for", "8.8.8.8")
+        |> post(~p"/api/v1/auth/login", %{
+          "identifier" => "spoof-3@example.com",
+          "password" => "Wrong-password1"
+        })
+
+      assert json_response(conn, 429)
     end
   end
 

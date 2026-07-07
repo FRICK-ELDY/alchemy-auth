@@ -21,6 +21,8 @@ config :auth,
   tos_url: "https://alchemy.frick-eldy.com/terms",
   privacy_policy_url: "https://alchemy.frick-eldy.com/privacy"
 
+config :auth, :trusted_proxies, []
+
 config :auth, Auth.RateLimit,
   enabled: true,
   limits: %{

@@ -91,26 +91,7 @@ defmodule AuthWeb.Plugs.RateLimit do
   end
 
   defp with_ip(conn, fun) do
-    fun.(client_ip(conn))
-  end
-
-  defp client_ip(conn) do
-    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
-      [forwarded | _] ->
-        case forwarded |> String.split(",", parts: 2) |> List.first() |> String.trim() do
-          "" -> fallback_ip(conn)
-          ip -> ip
-        end
-
-      _ ->
-        fallback_ip(conn)
-    end
-  end
-
-  defp fallback_ip(conn) do
-    conn.remote_ip
-    |> :inet.ntoa()
-    |> to_string()
+    fun.(AuthWeb.ClientIp.from_conn(conn))
   end
 
   defp normalize(value) do
@@ -137,7 +118,10 @@ defmodule AuthWeb.Plugs.RateLimit do
   end
 
   defp retry_after_seconds(period_ms) do
-    period_ms
+    now = System.system_time(:millisecond)
+    remaining_ms = period_ms - rem(now, period_ms)
+
+    remaining_ms
     |> div(1000)
     |> max(1)
   end

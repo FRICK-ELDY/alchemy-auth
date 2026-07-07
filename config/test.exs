@@ -39,6 +39,7 @@ config :phoenix,
 
 config :auth, :jwt_private_key_path, "test/support/fixtures/jwt_private.pem"
 config :auth, :jwt_generate_key_on_startup, false
+config :auth, :trusted_proxies, ["127.0.0.1", "::1"]
 
 config :auth, Auth.RateLimit,
   limits: %{

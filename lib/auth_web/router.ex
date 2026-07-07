@@ -3,6 +3,9 @@ defmodule AuthWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  pipeline :rate_limited do
     plug AuthWeb.Plugs.RateLimit
   end
 
@@ -11,7 +14,7 @@ defmodule AuthWeb.Router do
   end
 
   scope "/api/v1/auth", AuthWeb do
-    pipe_through :api
+    pipe_through [:api, :rate_limited]
 
     post "/register", AuthController, :register
     post "/login", AuthController, :login

@@ -97,6 +97,15 @@ if config_env() == :prod do
 
   config :auth, :jwt_generate_key_on_startup, false
 
+  trusted_proxies =
+    case System.get_env("TRUSTED_PROXIES") do
+      nil -> []
+      "" -> []
+      value -> String.split(value, ",", trim: true)
+    end
+
+  config :auth, :trusted_proxies, trusted_proxies
+
   rate_limit_env_integer = fn name, default ->
     case System.get_env(name) do
       nil -> default

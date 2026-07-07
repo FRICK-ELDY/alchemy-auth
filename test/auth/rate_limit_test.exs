@@ -54,6 +54,11 @@ defmodule Auth.RateLimitTest do
 
       assert_receive {[:auth, :rate_limit, :throttle], %{count: 1},
                       %{action: :login, axis: :ip, bucket: :login_ip}}
+
+      refute_receive {[:auth, :rate_limit, :throttle], _, _}
+
+      assert {:error, :rate_limited} = RateLimit.hit(:login_ip, "127.0.0.1", config)
+      refute_receive {[:auth, :rate_limit, :throttle], _, _}
     end
 
     test "cleanup does not reset long-period buckets" do
