@@ -9,6 +9,14 @@ defmodule Auth.RateLimit do
 
   @table :auth_rate_limit
   @cleanup_interval_ms 5 * 60_000
+  @buckets [
+    login_ip: {:login, :ip},
+    login_identifier: {:login, :identifier},
+    register_ip: {:register, :ip},
+    register_email: {:register, :email},
+    refresh_ip: {:refresh, :ip},
+    refresh_token: {:refresh, :token}
+  ]
 
   @type limit_config :: %{limit: pos_integer(), period_ms: pos_integer()}
 
@@ -90,14 +98,9 @@ defmodule Auth.RateLimit do
   end
 
   defp bucket_parts(bucket) do
-    case bucket do
-      :login_ip -> {:login, :ip}
-      :login_identifier -> {:login, :identifier}
-      :register_ip -> {:register, :ip}
-      :register_email -> {:register, :email}
-      :refresh_ip -> {:refresh, :ip}
-      :refresh_token -> {:refresh, :token}
-      other -> {:unknown, other}
+    case Keyword.fetch(@buckets, bucket) do
+      {:ok, parts} -> parts
+      :error -> {:unknown, bucket}
     end
   end
 
@@ -116,24 +119,22 @@ defmodule Auth.RateLimit do
 
   defp cleanup_stale_windows do
     if table_exists?() do
-      min_period_ms = min_period_ms()
+      now = System.system_time(:millisecond)
+      limits = Application.get_env(:auth, __MODULE__, []) |> Keyword.get(:limits, %{})
 
-      if min_period_ms > 0 do
-        cutoff_window = div(System.system_time(:millisecond), min_period_ms) - 2
+      for {bucket, {action, axis}} <- @buckets do
+        case get_in(limits, [action, axis, :period_ms]) do
+          period_ms when is_integer(period_ms) and period_ms > 0 ->
+            cutoff_window = div(now, period_ms) - 2
 
-        :ets.select_delete(@table, [
-          {{:"$1", :_, :"$2"}, [{:<, :"$2", cutoff_window}], [true]}
-        ])
+            :ets.select_delete(@table, [
+              {{{bucket, :_, :"$1"}, :_}, [{:<, :"$1", cutoff_window}], [true]}
+            ])
+
+          _ ->
+            :ok
+        end
       end
     end
-  end
-
-  defp min_period_ms do
-    Application.get_env(:auth, __MODULE__, [])
-    |> Keyword.get(:limits, %{})
-    |> Map.values()
-    |> Enum.flat_map(&Map.values/1)
-    |> Enum.map(&Map.get(&1, :period_ms, 0))
-    |> Enum.min(fn -> 0 end)
   end
 end

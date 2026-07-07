@@ -103,6 +103,42 @@ defmodule AuthWeb.Plugs.RateLimitTest do
 
       assert %{"access_token" => _} = json_response(conn, 200)
     end
+
+    test "falls back to remote_ip when x-forwarded-for is blank", %{conn: conn} do
+      exhausted_conn =
+        conn
+        |> Map.put(:remote_ip, {10, 0, 0, 1})
+        |> Plug.Conn.put_req_header("x-forwarded-for", "")
+
+      for index <- 1..2 do
+        exhausted_conn =
+          post(exhausted_conn, ~p"/api/v1/auth/login", %{
+            "identifier" => "blank-ip-#{index}@example.com",
+            "password" => "Wrong-password1"
+          })
+
+        assert json_response(exhausted_conn, 401)
+      end
+
+      assert json_response(
+               post(exhausted_conn, ~p"/api/v1/auth/login", %{
+                 "identifier" => "blank-ip-3@example.com",
+                 "password" => "Wrong-password1"
+               }),
+               429
+             )
+
+      other_conn =
+        conn
+        |> Map.put(:remote_ip, {10, 0, 0, 2})
+        |> Plug.Conn.put_req_header("x-forwarded-for", "   ")
+        |> post(~p"/api/v1/auth/login", %{
+          "identifier" => "other-remote@example.com",
+          "password" => "Wrong-password1"
+        })
+
+      assert json_response(other_conn, 401)
+    end
   end
 
   describe "POST /api/v1/auth/register" do

@@ -97,16 +97,20 @@ defmodule AuthWeb.Plugs.RateLimit do
   defp client_ip(conn) do
     case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
       [forwarded | _] ->
-        forwarded
-        |> String.split(",", parts: 2)
-        |> List.first()
-        |> String.trim()
+        case forwarded |> String.split(",", parts: 2) |> List.first() |> String.trim() do
+          "" -> fallback_ip(conn)
+          ip -> ip
+        end
 
       _ ->
-        conn.remote_ip
-        |> :inet.ntoa()
-        |> to_string()
+        fallback_ip(conn)
     end
+  end
+
+  defp fallback_ip(conn) do
+    conn.remote_ip
+    |> :inet.ntoa()
+    |> to_string()
   end
 
   defp normalize(value) do
