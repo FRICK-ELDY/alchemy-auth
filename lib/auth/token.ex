@@ -35,11 +35,13 @@ defmodule Auth.Token do
   """
   @spec verify(String.t()) :: {:ok, map(), User.t()} | {:error, any()}
   def verify(token) when is_binary(token) do
-    signer = Keys.signer()
-
-    case Joken.verify_and_validate(token_config(), token, signer) do
-      {:ok, claims} ->
-        verify_claims(claims)
+    with {:ok, %{"kid" => kid}} <- peek_kid(token),
+         {:ok, signer} <- Keys.signer_for_kid(kid),
+         {:ok, claims} <- Joken.verify_and_validate(token_config(), token, signer) do
+      verify_claims(claims)
+    else
+      {:error, :unknown_kid} ->
+        {:error, :unknown_kid}
 
       {:error, reason} ->
         {:error, {:token_validation_failed, reason}}
@@ -50,6 +52,19 @@ defmodule Auth.Token do
   rescue
     error ->
       {:error, {:token_verify_exception, error, __STACKTRACE__}}
+  end
+
+  defp peek_kid(token) do
+    case Joken.peek_header(token) do
+      {:ok, %{"kid" => kid}} when is_binary(kid) and kid != "" ->
+        {:ok, %{"kid" => kid}}
+
+      {:ok, _header} ->
+        {:error, :missing_kid}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp token_config do

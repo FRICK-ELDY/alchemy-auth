@@ -1,7 +1,7 @@
 # 実施計画: auth-engine JWT / JWKS 契約整理
 
 > 作成日: 2026-07-04
-> ステータス: 着手前
+> ステータス: 完了
 > 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable-specific-weaknesses.md)
 
 ---
@@ -35,11 +35,11 @@
 
 ## 4. タスク
 
-- [ ] 現行 JWT の claim と不足項目を棚卸しする
-- [ ] `engine` 向けの検証契約を 1 枚のメモにまとめる
-- [ ] `kid` 前提の鍵表現へ拡張する設計を決める
-- [ ] JWKS を単一鍵固定から複数鍵併存可能な形へ設計する
-- [ ] access token 短命化と外部検証の関係を明記する
+- [x] 現行 JWT の claim と不足項目を棚卸しする
+- [x] `engine` 向けの検証契約を 1 枚のメモにまとめる → [docs/jwt-jwks-engine-contract.md](../../docs/jwt-jwks-engine-contract.md)
+- [x] `kid` 前提の鍵表現へ拡張する設計を決める
+- [x] JWKS を単一鍵固定から複数鍵併存可能な形へ設計する
+- [x] access token 短命化と外部検証の関係を明記する
 
 ---
 
@@ -52,6 +52,15 @@
 
 ## 6. 受け入れ条件
 
-- [ ] JWT / JWKS 契約が文書として参照可能
-- [ ] `iss` / `aud` / `kid` の方針が決まっている
-- [ ] 鍵ローテーション時に旧トークン検証を継続できる前提が整理されている
+- [x] JWT / JWKS 契約が文書として参照可能
+- [x] `iss` / `aud` / `kid` の方針が決まっている
+- [x] 鍵ローテーション時に旧トークン検証を継続できる前提が整理されている
+
+---
+
+## 7. 実装メモ
+
+- 契約文書: `auth/docs/jwt-jwks-engine-contract.md`
+- 複数鍵: `jwt_verification_key_paths` / `JWT_VERIFICATION_KEY_PATHS`
+- `Auth.Token.Keys.signer_for_kid/1` で kid ベース検証
+- `Auth.Token.verify/1` はヘッダ `kid` から署名鍵を解決

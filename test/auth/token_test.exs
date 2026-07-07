@@ -39,4 +39,29 @@ defmodule Auth.TokenTest do
     assert {:ok, _} = Accounts.logout(jti, user.id, expires_at)
     assert {:error, :revoked} = Token.verify(token)
   end
+
+  test "rejects token with unknown kid", %{user: user} do
+    jwk = JOSE.JWK.generate_key({:rsa, 2048})
+    {_type, pem} = JOSE.JWK.to_pem(jwk)
+    foreign_signer = Joken.Signer.create("RS256", %{"pem" => pem}, %{"kid" => "foreign-kid"})
+
+    extra_claims = %{
+      "sub" => user.id,
+      "status" => "active",
+      "jti" => Ecto.UUID.generate()
+    }
+
+    ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
+    issuer = Application.fetch_env!(:auth, :jwt_issuer)
+    audience = Application.fetch_env!(:auth, :jwt_audience)
+
+    config =
+      Joken.Config.default_claims(default_exp: ttl, iss: issuer, aud: audience)
+      |> Joken.Config.add_claim("sub", fn -> nil end, fn _ -> true end)
+      |> Joken.Config.add_claim("status", fn -> nil end, fn _ -> true end)
+      |> Joken.Config.add_claim("jti", fn -> nil end, fn _ -> true end)
+
+    assert {:ok, token, _} = Joken.generate_and_sign(config, extra_claims, foreign_signer)
+    assert {:error, :unknown_kid} = Token.verify(token)
+  end
 end

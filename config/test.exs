@@ -38,6 +38,7 @@ config :phoenix,
   sort_verified_routes_query_params: true
 
 config :auth, :jwt_private_key_path, "test/support/fixtures/jwt_private.pem"
+config :auth, :jwt_verification_key_paths, []
 config :auth, :jwt_generate_key_on_startup, false
 config :auth, :trusted_proxies, ["127.0.0.1", "::1"]
 
