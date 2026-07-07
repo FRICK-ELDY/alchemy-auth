@@ -4,7 +4,7 @@ defmodule AuthWeb.Plugs.RateLimit do
 
   - `login`: IP and identifier
   - `register`: IP and email
-  - `refresh`: IP and refresh token family (falls back to token hash when unknown)
+  - `refresh`: IP first, then refresh token family (falls back to token hash when unknown)
   """
 
   import Plug.Conn
@@ -39,15 +39,47 @@ defmodule AuthWeb.Plugs.RateLimit do
     end
   end
 
+  defp first_exceeded_axis(conn, :refresh, limits) do
+    ip = AuthWeb.ClientIp.from_conn(conn)
+
+    case check_rate_limit(:refresh, :ip, ip, limits) do
+      {:rate_limited, period_ms} ->
+        {:ip, period_ms}
+
+      :ok ->
+        check_refresh_token_limit(conn, limits)
+    end
+  end
+
   defp first_exceeded_axis(conn, action, limits) do
     Enum.find_value(rate_limit_keys(conn, action), fn {axis, key} ->
-      limit_config = Map.fetch!(limits, axis)
-
-      case RateLimit.hit(bucket(action, axis), key, limit_config) do
+      case check_rate_limit(action, axis, key, limits) do
+        {:rate_limited, period_ms} -> {axis, period_ms}
         :ok -> false
-        {:error, :rate_limited} -> {axis, limit_config.period_ms}
       end
     end)
+  end
+
+  defp check_refresh_token_limit(conn, limits) do
+    case conn.params["refresh_token"] do
+      refresh_token when is_binary(refresh_token) and refresh_token != "" ->
+        case check_rate_limit(:refresh, :token, token_key(refresh_token), limits) do
+          {:rate_limited, period_ms} -> {:token, period_ms}
+          :ok -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp check_rate_limit(action, axis, key, limits) do
+    limit_config = Map.fetch!(limits, axis)
+
+    case RateLimit.hit(bucket(action, axis), key, limit_config) do
+      :ok -> :ok
+      {:error, :rate_limited} -> {:rate_limited, limit_config.period_ms}
+    end
   end
 
   defp action_for(%{path_info: ["api", "v1", "auth", "login"]}), do: :login
@@ -80,15 +112,7 @@ defmodule AuthWeb.Plugs.RateLimit do
   end
 
   defp rate_limit_keys(conn, :refresh) do
-    with_ip(conn, fn ip ->
-      case conn.params["refresh_token"] do
-        refresh_token when is_binary(refresh_token) and refresh_token != "" ->
-          [{:ip, ip}, {:token, token_key(refresh_token)}]
-
-        _ ->
-          [{:ip, ip}]
-      end
-    end)
+    with_ip(conn, fn ip -> [{:ip, ip}] end)
   end
 
   defp with_ip(conn, fun) do

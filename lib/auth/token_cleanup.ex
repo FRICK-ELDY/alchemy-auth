@@ -9,6 +9,7 @@ defmodule Auth.TokenCleanup do
 
   import Ecto.Query
 
+  alias Auth.Accounts.{RefreshToken, TokenRevocation}
   alias Auth.Repo
 
   @type cleanup_result :: %{
@@ -69,7 +70,7 @@ defmodule Auth.TokenCleanup do
 
   defp delete_expired_revocations(now) do
     {count, _} =
-      from(r in "token_revocations", where: r.expires_at < ^now)
+      from(r in TokenRevocation, where: r.expires_at < ^now)
       |> Repo.delete_all()
 
     count
@@ -85,7 +86,7 @@ defmodule Auth.TokenCleanup do
       DateTime.add(now, -(inactivity_days + grace_days) * 86_400, :second)
 
     {count, _} =
-      from(r in "refresh_tokens",
+      from(r in RefreshToken,
         where:
           (not is_nil(r.revoked_at) and r.revoked_at < ^revoked_cutoff) or
             r.last_used_at < ^inactive_cutoff

@@ -148,10 +148,24 @@ defmodule Auth.AccountsTest do
       assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
     end
 
-    test "revokes the token family when a rotated token is reused", %{
+    test "does not revoke the token family on immediate reuse", %{refresh_token: refresh_token} do
+      assert {:ok, %{refresh_token: current}} = Accounts.refresh(refresh_token)
+      assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
+      assert {:ok, _} = Accounts.refresh(current)
+    end
+
+    test "revokes the token family when reuse happens after the grace period", %{
       refresh_token: refresh_token
     } do
       assert {:ok, %{refresh_token: current}} = Accounts.refresh(refresh_token)
+
+      {:ok, record} = RefreshToken.get_by_token_hash(hash_token(refresh_token))
+
+      outside_grace =
+        DateTime.add(DateTime.utc_now(), -30, :second) |> DateTime.truncate(:second)
+
+      {:ok, _} = RefreshToken.revoke(record, %{revoked_at: outside_grace})
+
       assert {:error, :invalid_refresh_token} = Accounts.refresh(refresh_token)
       assert {:error, :invalid_refresh_token} = Accounts.refresh(current)
     end

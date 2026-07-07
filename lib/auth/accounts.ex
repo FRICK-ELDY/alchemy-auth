@@ -4,7 +4,7 @@ defmodule Auth.Accounts do
   """
 
   alias Auth.Accounts.{RefreshToken, TokenRevocation, User}
-  alias Auth.{Password, Token}
+  alias Auth.{Password, Repo, Token}
 
   require Ash.Query
   import Ash.Expr
@@ -87,7 +87,8 @@ defmodule Auth.Accounts do
   Exchanges a refresh token for a new access token and a rotated refresh token.
 
   Each successful refresh revokes the presented token and issues a new one in the
-  same token family. Reuse of a revoked token revokes the entire family.
+  same token family. Reuse of a revoked token after the reuse grace period
+  revokes the entire family.
 
   Tokens expire after `refresh_token_inactivity_days` of inactivity (sliding
   window on `last_used_at`).
@@ -98,7 +99,12 @@ defmodule Auth.Accounts do
 
     case get_refresh_token_record(refresh_token) do
       {:ok, %{revoked_at: revoked_at} = record} when not is_nil(revoked_at) ->
-        revoke_refresh_token_family(record.family_id, now)
+        grace_seconds = Application.fetch_env!(:auth, :refresh_token_reuse_grace_seconds)
+
+        if DateTime.diff(now, revoked_at, :second) > grace_seconds do
+          revoke_refresh_token_family(record.family_id, now)
+        end
+
         {:error, :invalid_refresh_token}
 
       {:ok, record} ->
@@ -143,20 +149,25 @@ defmodule Auth.Accounts do
   end
 
   defp do_refresh(record, now) do
-    with :ok <- ensure_refresh_token_usable(record, now),
-         {:ok, %User{status: :active} = user} <- fetch_user(record.user_id),
-         {:ok, new_refresh_token} <- rotate_refresh_token(record, user, now),
-         {:ok, access_token, _jti, expires_in} <- Token.generate(user) do
-      {:ok,
-       %{
-         access_token: access_token,
-         token_type: "Bearer",
-         expires_in: expires_in,
-         refresh_token: new_refresh_token,
-         user: user_payload(user)
-       }}
-    else
-      _ -> {:error, :invalid_refresh_token}
+    case Repo.transaction(fn ->
+           with :ok <- ensure_refresh_token_usable(record, now),
+                {:ok, %User{status: :active} = user} <- fetch_user(record.user_id),
+                {:ok, new_refresh_token} <- rotate_refresh_token(record, user, now),
+                {:ok, access_token, _jti, expires_in} <- Token.generate(user) do
+             %{
+               access_token: access_token,
+               token_type: "Bearer",
+               expires_in: expires_in,
+               refresh_token: new_refresh_token,
+               user: user_payload(user)
+             }
+           else
+             _ -> Repo.rollback(:invalid_refresh_token)
+           end
+         end) do
+      {:ok, session} -> {:ok, session}
+      {:error, :invalid_refresh_token} -> {:error, :invalid_refresh_token}
+      {:error, _} -> {:error, :invalid_refresh_token}
     end
   end
 
