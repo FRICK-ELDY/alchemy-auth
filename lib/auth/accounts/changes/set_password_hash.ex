@@ -8,10 +8,14 @@ defmodule Auth.Accounts.Changes.SetPasswordHash do
     argument = Keyword.get(opts, :argument, :password)
     password = Ash.Changeset.get_argument(changeset, argument)
 
-    Ash.Changeset.change_attribute(
-      changeset,
-      :password_hash,
-      Auth.Password.hash(password)
-    )
+    if is_binary(password) and password != "" do
+      Ash.Changeset.change_attribute(
+        changeset,
+        :password_hash,
+        Auth.Password.hash(password)
+      )
+    else
+      changeset
+    end
   end
 end

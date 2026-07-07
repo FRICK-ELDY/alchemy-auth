@@ -81,15 +81,22 @@ defmodule Auth.MailConfig do
         port: port,
         ssl: ssl?,
         tls: if(tls?, do: :always, else: :never),
-        auth: if(username && password, do: :always, else: :never),
+        auth: if(smtp_credentials?(username, password), do: :always, else: :never),
         username: username,
         password: password,
         from: mail_from
       ]
-      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
 
     Application.put_env(:auth, Auth.Mailer, smtp_config)
   end
+
+  defp smtp_credentials?(username, password) do
+    present?(username) and present?(password)
+  end
+
+  defp present?(value) when is_binary(value) and value != "", do: true
+  defp present?(_), do: false
 
   defp fetch_env!(name) do
     System.get_env(name) || raise_missing_env(name)

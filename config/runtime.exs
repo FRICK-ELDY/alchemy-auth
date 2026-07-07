@@ -217,7 +217,7 @@ if config_env() == :prod do
     config :auth, :auth_frontend_url, frontend_url
   end
 
-  Auth.MailConfig.configure!()
+  config :auth, :configure_mailer_at_startup, true
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
