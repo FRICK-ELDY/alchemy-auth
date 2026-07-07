@@ -39,3 +39,20 @@ config :phoenix,
 
 config :auth, :jwt_private_key_path, "test/support/fixtures/jwt_private.pem"
 config :auth, :jwt_generate_key_on_startup, false
+config :auth, :trusted_proxies, ["127.0.0.1", "::1"]
+
+config :auth, Auth.RateLimit,
+  limits: %{
+    login: %{
+      ip: %{limit: 10_000, period_ms: 60_000},
+      identifier: %{limit: 10_000, period_ms: 60_000}
+    },
+    register: %{
+      ip: %{limit: 10_000, period_ms: 3_600_000},
+      email: %{limit: 10_000, period_ms: 3_600_000}
+    },
+    refresh: %{
+      ip: %{limit: 10_000, period_ms: 60_000},
+      token: %{limit: 10_000, period_ms: 60_000}
+    }
+  }

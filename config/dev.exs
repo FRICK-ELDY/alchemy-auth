@@ -65,3 +65,19 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+config :auth, Auth.RateLimit,
+  limits: %{
+    login: %{
+      ip: %{limit: 300, period_ms: 60_000},
+      identifier: %{limit: 300, period_ms: 60_000}
+    },
+    register: %{
+      ip: %{limit: 300, period_ms: 3_600_000},
+      email: %{limit: 300, period_ms: 3_600_000}
+    },
+    refresh: %{
+      ip: %{limit: 300, period_ms: 60_000},
+      token: %{limit: 300, period_ms: 60_000}
+    }
+  }

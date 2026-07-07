@@ -53,6 +53,7 @@ defmodule Auth.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
+      {:remote_ip, "~> 1.2"},
       {:ash, "~> 3.0"},
       {:ash_postgres, "~> 2.0"},
       {:argon2_elixir, "~> 4.0"},

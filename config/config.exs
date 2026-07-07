@@ -21,6 +21,25 @@ config :auth,
   tos_url: "https://alchemy.frick-eldy.com/terms",
   privacy_policy_url: "https://alchemy.frick-eldy.com/privacy"
 
+config :auth, :trusted_proxies, []
+
+config :auth, Auth.RateLimit,
+  enabled: true,
+  limits: %{
+    login: %{
+      ip: %{limit: 30, period_ms: 60_000},
+      identifier: %{limit: 10, period_ms: 60_000}
+    },
+    register: %{
+      ip: %{limit: 10, period_ms: 3_600_000},
+      email: %{limit: 5, period_ms: 3_600_000}
+    },
+    refresh: %{
+      ip: %{limit: 60, period_ms: 60_000},
+      token: %{limit: 20, period_ms: 60_000}
+    }
+  }
+
 # Configure the endpoint
 config :auth, AuthWeb.Endpoint,
   url: [host: "localhost"],

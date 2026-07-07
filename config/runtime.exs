@@ -97,6 +97,57 @@ if config_env() == :prod do
 
   config :auth, :jwt_generate_key_on_startup, false
 
+  trusted_proxies =
+    case System.get_env("TRUSTED_PROXIES") do
+      nil -> []
+      "" -> []
+      value -> String.split(value, ",", trim: true)
+    end
+
+  config :auth, :trusted_proxies, trusted_proxies
+
+  rate_limit_env_integer = fn name, default ->
+    case System.get_env(name) do
+      nil -> default
+      value -> String.to_integer(value)
+    end
+  end
+
+  rate_limit_limits = %{
+    login: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_LOGIN_IP_LIMIT", 30),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_LOGIN_IP_PERIOD_MS", 60_000)
+      },
+      identifier: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_LOGIN_IDENTIFIER_LIMIT", 10),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_LOGIN_IDENTIFIER_PERIOD_MS", 60_000)
+      }
+    },
+    register: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_REGISTER_IP_LIMIT", 10),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_REGISTER_IP_PERIOD_MS", 3_600_000)
+      },
+      email: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_REGISTER_EMAIL_LIMIT", 5),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_REGISTER_EMAIL_PERIOD_MS", 3_600_000)
+      }
+    },
+    refresh: %{
+      ip: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_IP_LIMIT", 60),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_IP_PERIOD_MS", 60_000)
+      },
+      token: %{
+        limit: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_TOKEN_LIMIT", 20),
+        period_ms: rate_limit_env_integer.("AUTH_RATE_LIMIT_REFRESH_TOKEN_PERIOD_MS", 60_000)
+      }
+    }
+  }
+
+  config :auth, Auth.RateLimit, limits: rate_limit_limits
+
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you
   # want to use a different value for prod and you most likely don't want

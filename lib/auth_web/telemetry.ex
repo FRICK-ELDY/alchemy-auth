@@ -74,6 +74,10 @@ defmodule AuthWeb.Telemetry do
         description:
           "The time the connection spent waiting before being checked out for the query"
       ),
+      sum("auth.rate_limit.throttle.count",
+        tags: [:action, :axis],
+        description: "The number of auth API requests rejected by rate limiting"
+      ),
 
       # VM Metrics
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
