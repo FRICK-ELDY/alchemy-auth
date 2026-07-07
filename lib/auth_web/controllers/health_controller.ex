@@ -12,6 +12,9 @@ defmodule AuthWeb.HealthController do
   end
 
   defp app_version do
-    Application.spec(:auth, :vsn) |> to_string()
+    case Application.spec(:auth, :vsn) do
+      nil -> "unknown"
+      vsn -> to_string(vsn)
+    end
   end
 end
