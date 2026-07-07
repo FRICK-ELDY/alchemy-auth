@@ -3,10 +3,17 @@ import Config
 database_ssl? = System.get_env("DATABASE_SSL") in ~w(true 1)
 database_ssl_ca = System.get_env("DATABASE_SSL_CA_CERT")
 
+repo_ssl_verify_opts = [
+  verify: :verify_peer,
+  customize_hostname_check: [
+    match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+  ]
+]
+
 repo_ssl =
   cond do
     database_ssl? && is_binary(database_ssl_ca) && database_ssl_ca != "" ->
-      [ssl: true, ssl_opts: [cacertfile: database_ssl_ca, verify: :verify_peer]]
+      [ssl: [cacertfile: database_ssl_ca] ++ repo_ssl_verify_opts]
 
     database_ssl? ->
       [ssl: true]
