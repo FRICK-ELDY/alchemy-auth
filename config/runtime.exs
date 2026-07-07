@@ -1,5 +1,27 @@
 import Config
 
+database_ssl? = System.get_env("DATABASE_SSL") in ~w(true 1)
+database_ssl_ca = System.get_env("DATABASE_SSL_CA_CERT")
+
+repo_ssl_verify_opts = [
+  verify: :verify_peer,
+  customize_hostname_check: [
+    match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+  ]
+]
+
+repo_ssl =
+  cond do
+    database_ssl? && is_binary(database_ssl_ca) && database_ssl_ca != "" ->
+      [ssl: [cacertfile: database_ssl_ca] ++ repo_ssl_verify_opts]
+
+    database_ssl? ->
+      [ssl: true]
+
+    true ->
+      []
+  end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -25,10 +47,16 @@ config :auth, AuthWeb.Endpoint, http: [port: String.to_integer(System.get_env("P
 if config_env() != :test and System.get_env("DATABASE_URL") do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
-  config :auth, Auth.Repo,
-    url: System.get_env("DATABASE_URL"),
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    socket_options: maybe_ipv6
+  config :auth,
+         Auth.Repo,
+         Keyword.merge(
+           [
+             url: System.get_env("DATABASE_URL"),
+             pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+             socket_options: maybe_ipv6
+           ],
+           repo_ssl
+         )
 end
 
 if config_env() != :test and System.get_env("BIND_ALL") in ~w(true 1) do
@@ -50,13 +78,18 @@ if config_env() == :prod do
 
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
-  config :auth, Auth.Repo,
-    # ssl: true,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
-    # For machines with several cores, consider starting multiple pools of `pool_size`
-    # pool_count: 4,
-    socket_options: maybe_ipv6
+  config :auth,
+         Auth.Repo,
+         Keyword.merge(
+           [
+             url: database_url,
+             pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
+             # For machines with several cores, consider starting multiple pools of `pool_size`
+             # pool_count: 4,
+             socket_options: maybe_ipv6
+           ],
+           repo_ssl
+         )
 
   config :auth,
          :jwt_private_key_path,

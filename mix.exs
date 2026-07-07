@@ -8,6 +8,7 @@ defmodule Auth.MixProject do
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      releases: releases(),
       aliases: aliases(),
       deps: deps(),
       listeners: [Phoenix.CodeReloader]
@@ -56,7 +57,17 @@ defmodule Auth.MixProject do
       {:ash_postgres, "~> 2.0"},
       {:argon2_elixir, "~> 4.0"},
       {:joken, "~> 2.6"},
-      {:jose, "~> 1.11"}
+      {:jose, "~> 1.11"},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp releases do
+    [
+      auth: [
+        include_executables_for: [:unix],
+        applications: [runtime_tools: :permanent]
+      ]
     ]
   end
 
@@ -72,7 +83,13 @@ defmodule Auth.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ash.setup --quiet", "test"],
-      precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "credo --strict",
+        "test"
+      ]
     ]
   end
 end

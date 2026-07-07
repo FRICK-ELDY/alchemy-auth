@@ -3,6 +3,13 @@ defmodule AuthWeb.HealthControllerTest do
 
   test "GET /health", %{conn: conn} do
     conn = get(conn, ~p"/health")
-    assert %{"status" => "ok"} = json_response(conn, 200)
+
+    assert %{
+             "status" => "ok",
+             "service" => "alchemy-auth",
+             "version" => version
+           } = json_response(conn, 200)
+
+    assert is_binary(version)
   end
 end

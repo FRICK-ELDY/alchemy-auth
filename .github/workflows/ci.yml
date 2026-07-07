@@ -47,6 +47,9 @@ jobs:
             ${{ runner.os }}-mix-
 
       - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+      - run: mix credo --strict
       - run: mix ecto.create
       - run: mix ecto.migrate
       - run: mix test
