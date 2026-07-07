@@ -7,6 +7,8 @@ defmodule Auth.Application do
 
   @impl true
   def start(_type, _args) do
+    maybe_configure_mailer()
+
     children = [
       AuthWeb.Telemetry,
       Auth.RateLimit,
@@ -25,6 +27,14 @@ defmodule Auth.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Auth.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp maybe_configure_mailer do
+    if Application.get_env(:auth, :configure_mailer_at_startup, false) do
+      Auth.MailConfig.configure!()
+    end
+
+    :ok
   end
 
   # Tell Phoenix to update the endpoint configuration

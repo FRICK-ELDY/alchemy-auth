@@ -23,7 +23,11 @@ config :auth,
   token_cleanup_interval_ms: 3_600_000,
   tos_version: "2026-07-03",
   tos_url: "https://alchemy.frick-eldy.com/terms",
-  privacy_policy_url: "https://alchemy.frick-eldy.com/privacy"
+  privacy_policy_url: "https://alchemy.frick-eldy.com/privacy",
+  auth_frontend_url: "http://localhost:4000",
+  email_verification_token_ttl_hours: 24,
+  password_reset_token_ttl_hours: 1,
+  mail_from: {"Alchemy Auth", "noreply@alchemy.frick-eldy.com"}
 
 config :auth, :trusted_proxies, []
 
@@ -41,6 +45,20 @@ config :auth, Auth.RateLimit,
     refresh: %{
       ip: %{limit: 60, period_ms: 60_000},
       token: %{limit: 20, period_ms: 60_000}
+    },
+    resend_verification: %{
+      ip: %{limit: 10, period_ms: 3_600_000},
+      email: %{limit: 5, period_ms: 3_600_000}
+    },
+    forgot_password: %{
+      ip: %{limit: 10, period_ms: 3_600_000},
+      email: %{limit: 5, period_ms: 3_600_000}
+    },
+    reset_password: %{
+      ip: %{limit: 20, period_ms: 3_600_000}
+    },
+    verify_email: %{
+      ip: %{limit: 30, period_ms: 3_600_000}
     }
   }
 

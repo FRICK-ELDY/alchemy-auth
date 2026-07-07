@@ -15,7 +15,13 @@ defmodule Auth.RateLimit do
     register_ip: {:register, :ip},
     register_email: {:register, :email},
     refresh_ip: {:refresh, :ip},
-    refresh_token: {:refresh, :token}
+    refresh_token: {:refresh, :token},
+    resend_verification_ip: {:resend_verification, :ip},
+    resend_verification_email: {:resend_verification, :email},
+    forgot_password_ip: {:forgot_password, :ip},
+    forgot_password_email: {:forgot_password, :email},
+    reset_password_ip: {:reset_password, :ip},
+    verify_email_ip: {:verify_email, :ip}
   ]
 
   @type limit_config :: %{limit: pos_integer(), period_ms: pos_integer()}
