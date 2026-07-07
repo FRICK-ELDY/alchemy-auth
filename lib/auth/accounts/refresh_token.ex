@@ -2,7 +2,8 @@ defmodule Auth.Accounts.RefreshToken do
   @moduledoc """
   Opaque refresh tokens for "Remember Me" sessions.
 
-  Only a SHA-256 hash of the token is stored. Tokens expire after
+  Only a SHA-256 hash of the token is stored. Tokens belong to a `family_id`
+  chain and rotate on each refresh. Tokens expire after
   `refresh_token_inactivity_days` of inactivity (sliding window on
   `last_used_at`).
   """
@@ -23,6 +24,11 @@ defmodule Auth.Accounts.RefreshToken do
 
   attributes do
     uuid_primary_key :id
+
+    attribute :family_id, :uuid do
+      allow_nil? false
+      public? true
+    end
 
     attribute :token_hash, :string do
       allow_nil? false
@@ -63,22 +69,21 @@ defmodule Auth.Accounts.RefreshToken do
     end
 
     create :create do
-      accept [:user_id, :token_hash, :last_used_at]
-    end
-
-    update :touch do
-      accept [:last_used_at]
+      accept [:user_id, :family_id, :token_hash, :last_used_at]
     end
 
     update :revoke do
       accept [:revoked_at]
+    end
+
+    destroy :destroy do
+      primary? true
     end
   end
 
   code_interface do
     define :create, action: :create
     define :get_by_token_hash, action: :get_by_token_hash, args: [:token_hash]
-    define :touch, action: :touch
     define :revoke, action: :revoke
   end
 end

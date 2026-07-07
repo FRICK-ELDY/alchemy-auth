@@ -10,6 +10,7 @@ defmodule Auth.Application do
     children = [
       AuthWeb.Telemetry,
       Auth.RateLimit,
+      Auth.TokenCleanup,
       Auth.Repo,
       Auth.Token.Keys,
       {DNSCluster, query: Application.get_env(:auth, :dns_cluster_query) || :ignore},

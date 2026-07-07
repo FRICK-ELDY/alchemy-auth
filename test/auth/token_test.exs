@@ -12,7 +12,8 @@ defmodule Auth.TokenTest do
   end
 
   test "generates and verifies a token", %{user: user} do
-    assert {:ok, token, _jti, 86_400} = Token.generate(user)
+    ttl = Application.fetch_env!(:auth, :jwt_ttl_seconds)
+    assert {:ok, token, _jti, ^ttl} = Token.generate(user)
     assert {:ok, claims, verified_user} = Token.verify(token)
     assert claims["sub"] == user.id
     assert verified_user.id == user.id

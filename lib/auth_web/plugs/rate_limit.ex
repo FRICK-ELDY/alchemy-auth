@@ -4,12 +4,13 @@ defmodule AuthWeb.Plugs.RateLimit do
 
   - `login`: IP and identifier
   - `register`: IP and email
-  - `refresh`: IP and refresh token hash
+  - `refresh`: IP and refresh token family (falls back to token hash when unknown)
   """
 
   import Plug.Conn
   import Phoenix.Controller
 
+  alias Auth.Accounts.RefreshToken
   alias Auth.RateLimit
 
   def init(opts), do: opts
@@ -101,7 +102,14 @@ defmodule AuthWeb.Plugs.RateLimit do
   end
 
   defp token_key(refresh_token) do
-    :crypto.hash(:sha256, refresh_token) |> Base.encode16(case: :lower)
+    hash =
+      :crypto.hash(:sha256, refresh_token)
+      |> Base.encode16(case: :lower)
+
+    case RefreshToken.get_by_token_hash(hash) do
+      {:ok, %{family_id: family_id}} -> "family:" <> family_id
+      _ -> "token:" <> hash
+    end
   end
 
   defp bucket(:login, :ip), do: :login_ip

@@ -6,6 +6,9 @@ defmodule Auth.Accounts do
   alias Auth.Accounts.{RefreshToken, TokenRevocation, User}
   alias Auth.{Password, Token}
 
+  require Ash.Query
+  import Ash.Expr
+
   @invalid_credentials_message "Invalid username/email or password"
 
   @typedoc """
@@ -81,30 +84,28 @@ defmodule Auth.Accounts do
   end
 
   @doc """
-  Exchanges a refresh token for a new access token.
+  Exchanges a refresh token for a new access token and a rotated refresh token.
 
-  The refresh token stays valid as long as it is used at least once every
-  `refresh_token_inactivity_days` days (sliding window on `last_used_at`).
+  Each successful refresh revokes the presented token and issues a new one in the
+  same token family. Reuse of a revoked token revokes the entire family.
+
+  Tokens expire after `refresh_token_inactivity_days` of inactivity (sliding
+  window on `last_used_at`).
   """
   @spec refresh(String.t()) :: {:ok, session()} | {:error, :invalid_refresh_token}
   def refresh(refresh_token) when is_binary(refresh_token) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    with {:ok, record} <- get_refresh_token_record(refresh_token),
-         :ok <- ensure_refresh_token_usable(record, now),
-         {:ok, %User{status: :active} = user} <- fetch_user(record.user_id),
-         {:ok, _} <- RefreshToken.touch(record, %{last_used_at: now}),
-         {:ok, access_token, _jti, expires_in} <- Token.generate(user) do
-      {:ok,
-       %{
-         access_token: access_token,
-         token_type: "Bearer",
-         expires_in: expires_in,
-         refresh_token: refresh_token,
-         user: user_payload(user)
-       }}
-    else
-      _ -> {:error, :invalid_refresh_token}
+    case get_refresh_token_record(refresh_token) do
+      {:ok, %{revoked_at: revoked_at} = record} when not is_nil(revoked_at) ->
+        revoke_refresh_token_family(record.family_id, now)
+        {:error, :invalid_refresh_token}
+
+      {:ok, record} ->
+        do_refresh(record, now)
+
+      _ ->
+        {:error, :invalid_refresh_token}
     end
   end
 
@@ -141,6 +142,24 @@ defmodule Auth.Accounts do
     }
   end
 
+  defp do_refresh(record, now) do
+    with :ok <- ensure_refresh_token_usable(record, now),
+         {:ok, %User{status: :active} = user} <- fetch_user(record.user_id),
+         {:ok, new_refresh_token} <- rotate_refresh_token(record, user, now),
+         {:ok, access_token, _jti, expires_in} <- Token.generate(user) do
+      {:ok,
+       %{
+         access_token: access_token,
+         token_type: "Bearer",
+         expires_in: expires_in,
+         refresh_token: new_refresh_token,
+         user: user_payload(user)
+       }}
+    else
+      _ -> {:error, :invalid_refresh_token}
+    end
+  end
+
   defp get_by_identifier(identifier) do
     if String.contains?(identifier, "@") do
       User.get_by_email(identifier)
@@ -149,17 +168,25 @@ defmodule Auth.Accounts do
     end
   end
 
-  defp create_refresh_token(user) do
+  defp create_refresh_token(user, family_id \\ nil) do
     plaintext = 32 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
     now = DateTime.utc_now() |> DateTime.truncate(:second)
+    family_id = family_id || Ecto.UUID.generate()
 
     case RefreshToken.create(%{
            user_id: user.id,
+           family_id: family_id,
            token_hash: hash_refresh_token(plaintext),
            last_used_at: now
          }) do
       {:ok, _record} -> {:ok, plaintext}
       {:error, error} -> {:error, error}
+    end
+  end
+
+  defp rotate_refresh_token(record, user, now) do
+    with {:ok, _} <- RefreshToken.revoke(record, %{revoked_at: now}) do
+      create_refresh_token(user, record.family_id)
     end
   end
 
@@ -180,6 +207,14 @@ defmodule Auth.Accounts do
 
   defp fetch_user(user_id) do
     Ash.get(User, user_id)
+  end
+
+  defp revoke_refresh_token_family(family_id, now) do
+    RefreshToken
+    |> Ash.Query.filter(expr(family_id == ^family_id and is_nil(revoked_at)))
+    |> Ash.bulk_update(:revoke, %{revoked_at: now})
+
+    :ok
   end
 
   defp revoke_refresh_token(plaintext, user_id) do

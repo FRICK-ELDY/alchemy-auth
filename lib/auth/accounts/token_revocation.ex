@@ -45,6 +45,10 @@ defmodule Auth.Accounts.TokenRevocation do
     create :revoke do
       accept [:jti, :user_id, :expires_at]
     end
+
+    destroy :destroy do
+      primary? true
+    end
   end
 
   code_interface do
