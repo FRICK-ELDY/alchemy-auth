@@ -12,6 +12,10 @@ defmodule AuthWeb.ErrorJSON do
   #   %{errors: %{detail: "Internal Server Error"}}
   # end
 
+  def render("429.json", _assigns) do
+    %{errors: %{detail: "Too many requests"}}
+  end
+
   # By default, Phoenix returns the status message from
   # the template name. For example, "404.json" becomes
   # "Not Found".

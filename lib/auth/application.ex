@@ -9,6 +9,7 @@ defmodule Auth.Application do
   def start(_type, _args) do
     children = [
       AuthWeb.Telemetry,
+      Auth.RateLimit,
       Auth.Repo,
       Auth.Token.Keys,
       {DNSCluster, query: Application.get_env(:auth, :dns_cluster_query) || :ignore},

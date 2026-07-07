@@ -9,4 +9,9 @@ defmodule AuthWeb.ErrorJSONTest do
     assert AuthWeb.ErrorJSON.render("500.json", %{}) ==
              %{errors: %{detail: "Internal Server Error"}}
   end
+
+  test "renders 429" do
+    assert AuthWeb.ErrorJSON.render("429.json", %{}) ==
+             %{errors: %{detail: "Too many requests"}}
+  end
 end

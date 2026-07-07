@@ -3,6 +3,7 @@ defmodule AuthWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug AuthWeb.Plugs.RateLimit
   end
 
   pipeline :authenticated do
