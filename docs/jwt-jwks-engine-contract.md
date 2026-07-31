@@ -176,10 +176,10 @@ JWT 発行 → Bearer (room_token 等) → JWKS 署名 + iss/aud/exp + kid
 
 ## 9. engine 実装チェックリスト（別 PR）
 
-- [ ] JWKS クライアント（起動時取得 + `kid` キャッシュ + miss 時再取得 + 定期更新）
-- [ ] `POST /api/room_token` を Bearer JWT 必須に変更
-- [ ] `alg`, `kid`, `iss`, `aud`, `exp`, `sub`, `status` の検証
-- [ ] clock skew ±60 秒の許容
-- [ ] auth base URL を設定可能にする（例: `AUTH_JWKS_URL` または `AUTH_BASE_URL`）
+- [x] JWKS クライアント（起動時取得 + `kid` キャッシュ + miss 時再取得 + 定期更新）
+- [x] `POST /api/room_token` を Bearer JWT 必須に変更（`AUTH_REQUIRED` で切替。既定オフ）
+- [x] `alg`, `kid`, `iss`, `aud`, `exp`, `sub`, `status` の検証
+- [x] clock skew ±60 秒の許容
+- [x] auth base URL を設定可能にする（`AUTH_JWKS_URL` または `AUTH_BASE_URL`）
 
 参照: [fable-improvement-plan.md](../../engine/workspace/0_reference/fable-improvement-plan.md)
