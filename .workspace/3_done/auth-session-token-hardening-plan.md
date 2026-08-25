@@ -2,7 +2,7 @@
 
 > 作成日: 2026-07-04
 > ステータス: 実施済み
-> 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable-specific-weaknesses.md)
+> 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md)
 
 ---
 
