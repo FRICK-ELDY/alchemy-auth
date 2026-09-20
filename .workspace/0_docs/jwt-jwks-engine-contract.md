@@ -141,7 +141,7 @@ JWT 発行 → Bearer (room_token 等) → JWKS 署名 + iss/aud/exp + kid
 
 - 現行 access token TTL: **24 時間**（`jwt_ttl_seconds`）
 - 外部 verifier は jti 失効リストにアクセスできないため、logout 後も TTL 満了までトークンが有効になりうる
-- **対策**: access token を 5〜15 分に短命化する（[auth-session-token-hardening-plan](../.workspace/2_todo/auth-session-token-hardening-plan.md) で実施予定）
+- **対策**: access token を 5〜15 分に短命化する（[auth-session-token-hardening-plan](../3_done/auth-session-token-hardening-plan.md) で実施予定）
 - 外部 verifier は jti 失効への依存を設計に含めてはならない
 
 ---
@@ -182,4 +182,4 @@ JWT 発行 → Bearer (room_token 等) → JWKS 署名 + iss/aud/exp + kid
 - [x] clock skew ±60 秒の許容
 - [x] auth base URL を設定可能にする（`AUTH_JWKS_URL` または `AUTH_BASE_URL`）
 
-参照: [fable-improvement-plan.md](../../engine/workspace/0_reference/fable-improvement-plan.md)
+参照: [fable-improvement-plan.md](../../../engine/.workspace/0_reference/fable-improvement-plan.md)

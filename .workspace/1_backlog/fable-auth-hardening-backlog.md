@@ -1,7 +1,7 @@
 # バックログ: auth 実装項目（分割後の残件）
 
 > 更新日: 2026-07-04
-> 目的: `engine/docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md` 起点の `auth` 課題について、着手可能なものを `2_todo` へ分割した後の残件を管理する。
+> 目的: `engine/.workspace/0_docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md` 起点の `auth` 課題について、着手可能なものを `2_todo` へ分割した後の残件を管理する。
 
 ---
 
@@ -36,5 +36,5 @@
 
 ## メモ
 
-- 元ソース: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md)
+- 元ソース: [fable-specific-weaknesses.md](../../../engine/.workspace/0_docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md)
 - `2_todo` の各計画が完了したら、対応する項目は `3_Inprogress` 以降へ移動して管理する
