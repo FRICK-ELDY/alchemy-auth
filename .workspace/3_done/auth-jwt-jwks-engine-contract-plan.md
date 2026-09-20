@@ -2,7 +2,7 @@
 
 > 作成日: 2026-07-04
 > ステータス: 完了
-> 出典: [fable-specific-weaknesses.md](../../../engine/docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md)
+> 出典: [fable-specific-weaknesses.md](../../../engine/.workspace/0_docs/evaluation/fable/archive/2026-07-31/fable-specific-weaknesses.md)
 
 ---
 
@@ -36,7 +36,7 @@
 ## 4. タスク
 
 - [x] 現行 JWT の claim と不足項目を棚卸しする
-- [x] `engine` 向けの検証契約を 1 枚のメモにまとめる → [docs/jwt-jwks-engine-contract.md](../../docs/jwt-jwks-engine-contract.md)
+- [x] `engine` 向けの検証契約を 1 枚のメモにまとめる → [jwt-jwks-engine-contract.md](../0_docs/jwt-jwks-engine-contract.md)
 - [x] `kid` 前提の鍵表現へ拡張する設計を決める
 - [x] JWKS を単一鍵固定から複数鍵併存可能な形へ設計する
 - [x] access token 短命化と外部検証の関係を明記する
@@ -60,7 +60,7 @@
 
 ## 7. 実装メモ
 
-- 契約文書: `auth/docs/jwt-jwks-engine-contract.md`
+- 契約文書: `auth/.workspace/0_docs/jwt-jwks-engine-contract.md`
 - 複数鍵: `jwt_verification_key_paths` / `JWT_VERIFICATION_KEY_PATHS`
 - `Auth.Token.Keys.signer_for_kid/1` で kid ベース検証
 - `Auth.Token.verify/1` はヘッダ `kid` から署名鍵を解決

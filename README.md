@@ -205,7 +205,7 @@ HTTP/1.1 200 OK
 - 署名方式: **RS256**（本サービスのみ秘密鍵を保持）
 - 他サービス（alchemy-engine, alchemy-assets）は `/.well-known/jwks.json` の公開鍵で検証する
 - **パスワード・password_hash は JWT に含めない**
-- engine 等の外部 verifier 向け検証契約: [docs/jwt-jwks-engine-contract.md](docs/jwt-jwks-engine-contract.md)
+- engine 等の外部 verifier 向け検証契約: [jwt-jwks-engine-contract.md](.workspace/0_docs/jwt-jwks-engine-contract.md)
 
 ## セキュリティ方針
 
